@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>로비</title>
+    <style>
+        :root {
+            --bg-color: #1a191e; --panel-bg: rgba(35, 33, 40, 0.95);
+            --gold-main: #d4b26f; --gold-light: #f7e0a3; --gold-dark: #8c703b;
+            --text-main: #f0f0f0; --text-sub: #a0a0b0;
+            --font-main: 'Pretendard', 'Malgun Gothic', sans-serif;
+            --font-serif: 'Georgia', 'Times New Roman', serif;
+        }
+        body { font-family: var(--font-main); background: radial-gradient(circle at center, #2a2830 0%, #111014 100%); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
+        .game-container { width: 100%; max-width: 1200px; height: 90vh; max-height: 800px; position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; background-color: var(--bg-color); }
+
+        #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 300; display: none; justify-content: center; align-items: center; color: var(--gold-main); font-size: 24px; font-family: var(--font-serif); }
+        .view { display: none; flex: 1; padding: 20px 40px; overflow-y: auto; width: 100%; box-sizing: border-box; }
+        .view.active { display: flex; flex-direction: column; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+        .top-bar { display: none; justify-content: space-between; align-items: center; padding: 15px 30px; background: rgba(0,0,0,0.5); z-index: 10; border-bottom: 1px solid var(--gold-dark); gap: 12px; }
+        .top-bar-left { display: flex; align-items: center; gap: 15px; }
+        .back-btn { background: transparent; border: 1px solid var(--gold-main); color: var(--gold-main); padding: 5px 15px; cursor: pointer; border-radius: 20px; display: none; }
+        .back-btn:hover { background: var(--gold-main); color: #000; }
+        .page-title { font-family: var(--font-serif); font-size: 24px; color: var(--gold-light); }
+        .resources { display: flex; gap: 15px; flex-wrap: wrap; justify-content: flex-end; }
+        .resource-item { background: rgba(0,0,0,0.8); border: 1px solid var(--gold-dark); padding: 5px 15px; border-radius: 15px; display: flex; align-items: center; gap: 4px; font-size: 14px; position: relative; user-select: none; }
+        .inv-btn { border-color: var(--gold-light); cursor: pointer; transition: 0.2s; }
+        .inv-btn:hover { background: var(--gold-dark); color: #fff; }
+        .zero-count { font-size: 11px; color: var(--text-sub); margin-left: 6px; }
+        .status-badge { padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-weight: bold; font-size: 12px; color: #fff; }
+
+        .alert-badge { position: absolute; top: -5px; right: -2px; background: #ff3333; color: white; font-weight: bold; font-size: 11px; padding: 1px 6px; border-radius: 10px; box-shadow: 0 0 8px #ff3333; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+        .login-box { margin: auto; padding: 40px; background: var(--panel-bg); border: 1px solid var(--gold-dark); border-radius: 12px; text-align: center; width: 320px; max-width: 100%; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .login-box input { width: 100%; padding: 12px; margin: 15px 0; background: rgba(0,0,0,0.5); border: 1px solid var(--text-sub); color: #fff; box-sizing: border-box; text-align: center; font-size: 16px; letter-spacing: 2px; }
+        .login-box input:focus { outline: none; border-color: var(--gold-main); }
+
+        .btn-primary { background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-main) 100%); color: #111; border: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; font-family: var(--font-main); }
+        .btn-primary:hover:not(:disabled) { filter: brightness(1.2); transform: translateY(-2px); }
+        .btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
+        .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--text-sub); padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-family: var(--font-main); }
+        .btn-outline:hover, .btn-outline.selected { border-color: var(--gold-main); color: var(--gold-light); background: rgba(212, 178, 111, 0.1); }
+        .btn-cancel { background: #666; color: #fff; border: none; }
+        .btn-cancel:hover { background: #555; }
+        .btn-small { padding: 5px 12px; font-size: 12px; border-radius: 15px; width: auto; }
+
+        .section-head { background: rgba(0,0,0,0.3); border: 1px solid var(--gold-dark); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .section-head h3 { color: var(--gold-light); font-size: 26px; margin: 0 0 5px 0; font-family: var(--font-serif); }
+        .section-head p { color: var(--text-sub); margin: 0; }
+
+        /* 명단 */
+        .guest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px; padding: 20px 0; width: 100%; box-sizing: border-box; align-items: stretch; }
+        .guest-card { background: rgba(0,0,0,0.6); border: 1px solid var(--gold-dark); border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; display: flex; flex-direction: column; }
+        .guest-card:hover { border-color: var(--gold-light); transform: translateY(-5px); }
+        .guest-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; background: #222; }
+        .guest-hp-bar { width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 5px; margin-bottom: 12px; box-shadow: inset 0 0 5px #000; }
+        .guest-hp-fill { height: 100%; transition: width 0.3s, background 0.3s; }
+        .guest-stats { display: flex; justify-content: space-around; color: #ddd; font-size: 13px; margin: 10px 0 0 0; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; border: 1px dashed var(--gold-dark); font-weight: bold; }
+        .zero-pill { font-size: 10px; color: var(--text-sub); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 6px; margin-left: 6px; font-weight: normal; }
+        #btn-floating-guest { position: absolute; bottom: 30px; right: 30px; z-index: 50; display: none; padding: 10px 26px; border-radius: 30px; font-size: 15px; font-weight: bold; border: 1px solid var(--gold-main); background: rgba(0,0,0,0.8); color: var(--gold-light); cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: 0.2s; }
+        #btn-floating-guest:hover { background: var(--gold-dark); color: #fff; transform: scale(1.05); }
+
+        /* 로비 */
+        .char-list { display: flex; gap: 30px; justify-content: center; margin-top: 50px; flex-wrap: wrap; }
+        .char-card-v2 { width: 260px; height: 380px; background-color: #222; background-size: cover; background-position: center; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; transition: 0.3s; position: relative; border: 1px solid var(--gold-dark); box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); }
+        .char-card-v2:hover { transform: translateY(-10px); border-color: var(--gold-light); box-shadow: 0 0 20px var(--gold-dark); }
+        .char-details { padding: 20px; text-align: center; background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7) 70%, transparent); }
+        .char-details h2 { margin: 0; color: var(--gold-light); font-family: var(--font-serif); font-size: 26px; }
+        .char-details div { color: #aaa; font-size: 13px; letter-spacing: 1px; margin-top: 5px; }
+
+        /* 소지품 */
+        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
+        .item-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
+        .item-card:hover { border-color: var(--gold-dark); }
+        .item-card.is-new { border-color: rgba(255, 85, 85, 0.6); }
+        .new-tag { font-size: 10px; background: #ff3333; color: #fff; padding: 1px 6px; border-radius: 8px; margin-left: 6px; vertical-align: middle; }
+        .count-tag { font-size: 12px; color: var(--gold-main); margin-left: 6px; }
+        .item-delete-btn { position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border: 1px solid #fff; border-radius: 4px; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; background: rgba(0,0,0,0.3); }
+        .item-delete-btn:hover { background: #ff3333; border-color: #ff3333; }
+
+        /* 아이템 갤러리 */
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+        .gallery-card { background: rgba(0,0,0,0.55); border: 1px solid var(--gold-dark); border-radius: 12px; padding: 14px; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; }
+        .gallery-card:hover { border-color: var(--gold-light); transform: translateY(-5px); box-shadow: 0 0 18px rgba(140,112,59,0.5); }
+        .gallery-img { width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; background: #111014; border: 1px solid rgba(255,255,255,0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--gold-dark); font-family: var(--font-serif); font-size: 13px; margin-bottom: 12px; }
+        .gallery-img img { width: 100%; height: 100%; object-fit: cover; }
+        .gallery-name { color: var(--gold-light); font-weight: bold; font-size: 17px; text-align: center; margin-bottom: 6px; }
+        .gallery-desc { color: #bbb; font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+
+        /* 모달 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
+        .modal-box { background: var(--panel-bg); border: 1px solid var(--gold-main); padding: 30px; border-radius: 12px; text-align: center; width: 380px; max-width: 100%; max-height: 90vh; overflow-y: auto; box-sizing: border-box; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
+        .modal-box h3 { color: var(--gold-light); font-size: 22px; margin-top: 0; }
+        .modal-actions { display: flex; gap: 10px; margin-top: 25px; }
+        .heal-input { width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid var(--text-sub); color: #fff; border-radius: 4px; box-sizing: border-box; margin-bottom: 12px; font-size: 15px; text-align: center; font-family: var(--font-main); }
+        .heal-input:focus { outline: none; border-color: var(--gold-main); background: rgba(0,0,0,0.8); }
+
+        /* 작전 구상 */
+        .plan-layout { display: flex; gap: 20px; align-items: flex-start; }
+        .plan-side { flex: 0 0 230px; position: sticky; top: 0; background: rgba(15,14,18,0.8); border: 1px solid var(--gold-dark); border-radius: 10px; padding: 14px; box-sizing: border-box; }
+        .plan-side-head { display: flex; justify-content: space-between; align-items: center; color: var(--gold-light); font-family: var(--font-serif); font-size: 17px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(140,112,59,0.3); }
+        .add-page-btn { background: transparent; border: 1px dashed var(--gold-main); color: var(--gold-light); border-radius: 15px; padding: 3px 10px; cursor: pointer; font-size: 12px; font-family: var(--font-main); }
+        .add-page-btn:hover { background: rgba(212,178,111,0.15); }
+        #plan-pages { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; }
+        .page-chip { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: rgba(255,255,255,0.03); border: 1px solid transparent; color: #ccc; border-radius: 8px; padding: 9px 10px; cursor: pointer; font-family: var(--font-main); font-size: 14px; transition: 0.2s; position: relative; }
+        .page-chip:hover { background: rgba(212,178,111,0.08); color: #fff; }
+        .page-chip.active { border-color: var(--gold-main); background: rgba(212,178,111,0.12); color: var(--gold-light); font-weight: bold; }
+        .page-no { font-size: 11px; color: var(--gold-main); flex: 0 0 auto; }
+        .page-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .page-count { font-size: 11px; color: var(--text-sub); flex: 0 0 auto; }
+        .page-new { width: 7px; height: 7px; border-radius: 50%; background: #ff3333; box-shadow: 0 0 6px #ff3333; flex: 0 0 auto; }
+        .plan-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+        .plan-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid var(--gold-dark); padding-bottom: 12px; }
+        .plan-head h3 { margin: 0; color: var(--gold-light); font-family: var(--font-serif); font-size: 26px; word-break: keep-all; }
+        .plan-meta { color: var(--text-sub); font-size: 12px; margin-top: 4px; }
+        .plan-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        .plan-updated { font-size: 11px; color: var(--text-sub); }
+        .composer { background: rgba(0,0,0,0.45); border: 1px solid rgba(140,112,59,0.5); border-radius: 10px; padding: 14px; display: flex; gap: 12px; }
+        .composer:focus-within { border-color: var(--gold-main); }
+        .composer-body { flex: 1; min-width: 0; }
+        .plan-textarea { width: 100%; min-height: 70px; resize: none; background: transparent; border: none; color: #fff; font-size: 15px; line-height: 1.6; font-family: var(--font-main); box-sizing: border-box; overflow: hidden; }
+        .plan-textarea:focus { outline: none; }
+        .composer-foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 10px; margin-top: 6px; }
+        .hint { font-size: 11px; color: var(--text-sub); }
+        .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--gold-dark); background: #222; display: flex; align-items: center; justify-content: center; color: var(--gold-light); font-weight: bold; font-family: var(--font-serif); }
+        .avatar.sm { width: 30px; height: 30px; font-size: 12px; }
+        .post { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+        .post.mine { border-left: 3px solid var(--gold-main); }
+        .post-head { display: flex; align-items: center; gap: 10px; }
+        .post-who { flex: 1; min-width: 0; }
+        .post-name { color: var(--gold-light); font-weight: bold; font-size: 15px; }
+        .post-time { color: var(--text-sub); font-size: 11px; margin-left: 6px; }
+        .post-actions { display: flex; gap: 4px; }
+        .link-btn { background: transparent; border: none; color: var(--text-sub); cursor: pointer; font-size: 12px; padding: 4px 6px; border-radius: 4px; font-family: var(--font-main); }
+        .link-btn:hover { color: var(--gold-light); background: rgba(212,178,111,0.1); }
+        .link-btn.danger:hover { color: #ff7777; background: rgba(255,85,85,0.1); }
+        .post-body { color: #eee; font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; margin: 12px 0 8px 50px; }
+        .post-body a, .comment-body a { color: var(--gold-light); }
+        .post-body.deleted { color: #666; font-style: italic; }
+        .post-foot { margin-left: 44px; }
+        .comments { margin: 10px 0 0 50px; border-left: 2px solid rgba(140,112,59,0.3); padding-left: 14px; display: flex; flex-direction: column; gap: 12px; }
+        .comment { display: flex; gap: 10px; }
+        .comment-main { flex: 1; min-width: 0; }
+        .comment-body { color: #ddd; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
+        .reply-box { display: flex; gap: 8px; align-items: flex-end; }
+        .reply-box textarea { flex: 1; min-height: 38px; resize: none; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; padding: 8px 10px; font-size: 14px; font-family: var(--font-main); box-sizing: border-box; overflow: hidden; line-height: 1.5; }
+        .reply-box textarea:focus { outline: none; border-color: var(--gold-main); }
+        .edit-box { margin: 12px 0 8px 50px; }
+        .edit-box textarea { width: 100%; min-height: 80px; resize: none; background: rgba(0,0,0,0.5); border: 1px solid var(--gold-main); border-radius: 6px; color: #fff; padding: 10px; font-size: 14px; line-height: 1.6; font-family: var(--font-main); box-sizing: border-box; overflow: hidden; }
+        .edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+        .empty-msg { color: var(--text-sub); text-align: center; padding: 40px 0; }
+
+        @media (max-width: 760px) {
+            .game-container { height: 100vh; max-height: none; }
+            .view { padding: 15px; }
+            .top-bar { flex-direction: column; align-items: stretch; padding: 12px 15px; }
+            .resources { justify-content: flex-start; gap: 8px; }
+            .page-title { font-size: 18px; }
+            .plan-layout { flex-direction: column; }
+            .plan-side { position: static; flex: none; width: 100%; }
+            #plan-pages { flex-direction: row; overflow-x: auto; max-height: none; padding-bottom: 4px; }
+            .page-chip { flex: 0 0 auto; width: auto; max-width: 200px; }
+            .post-body, .edit-box { margin-left: 0; }
+            .post-foot { margin-left: 0; }
+            .comments { margin-left: 8px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="game-container">
+    <div id="loading-overlay">데이터 동기화 중...</div>
+
+    <div class="top-bar" id="top-bar">
+        <div class="top-bar-left">
+            <button class="back-btn" id="btn-back">◀ 로비로</button>
+            <div class="page-title" id="page-title">✦ CHARACTER LIST ✦</div>
+        </div>
+        <div class="resources">
+            <div class="resource-item">👤 <span id="ui-name">이름</span></div>
+            <div class="resource-item">
+                <span style="color:var(--gold-main); font-weight:bold;">존재감</span>&nbsp;<span id="ui-hp">0</span>&nbsp;/&nbsp;<span id="ui-maxhp">0</span>
+                <span id="ui-zero" class="zero-count" title="존재감이 0이 된 횟수"></span>
+                <span id="ui-status" class="status-badge" style="display:none;"></span>
+            </div>
+            <div class="resource-item inv-btn" onclick="openInventoryView()">소지품 <span id="ui-inv-alert" class="alert-badge" style="display:none;">!</span></div>
+        </div>
+    </div>
+
+    <!-- 공용 확인 모달 -->
+    <div id="modal-confirm" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="mc-title">확인</h3>
+            <div id="mc-desc" style="color:#4caf50; font-size:14px; margin-bottom:10px; white-space:pre-wrap;"></div>
+            <p id="mc-msg" style="color:#fff; font-size:17px; margin-bottom:5px;"></p>
+            <p id="mc-sub" style="color:var(--text-sub); font-size:12px;"></p>
+            <div class="modal-actions">
+                <button class="btn-primary" id="mc-ok">확인</button>
+                <button class="btn-primary btn-cancel" onclick="closeModal('modal-confirm')">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 공용 입력 모달 (쪽 추가/이름 변경) -->
+    <div id="modal-prompt" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="mp-title">입력</h3>
+            <p id="mp-msg" style="color:var(--text-sub); font-size:13px;"></p>
+            <input type="text" id="mp-input" class="heal-input" maxlength="30">
+            <div class="modal-actions">
+                <button class="btn-primary" id="mp-ok">확인</button>
+                <button class="btn-primary btn-cancel" onclick="closeModal('modal-prompt')">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 소지품 양도 모달 -->
+    <div id="modal-transfer" class="modal-overlay">
+        <div class="modal-box">
+            <h3 id="mt-item">아이템 이름</h3>
+            <p style="color:#fff; font-size:15px; margin-bottom:15px;">누구에게 양도하시겠습니까?</p>
+            <input type="text" id="mt-target" class="heal-input" placeholder="받는 사람 이름" list="guest-names" autocomplete="off">
+            <datalist id="guest-names"></datalist>
+            <p style="color:var(--text-sub); font-size:12px; margin:0;">※ 양도하면 내 소지품에서 사라집니다.</p>
+            <div class="modal-actions">
+                <button class="btn-primary" id="mt-ok">양도하기</button>
+                <button class="btn-primary btn-cancel" onclick="closeModal('modal-transfer')">취소</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 아이템 상세 모달 -->
+    <div id="modal-item" class="modal-overlay">
+        <div class="modal-box" style="width:440px;">
+            <div id="mi-img" style="margin-bottom:15px;"></div>
+            <h3 id="mi-name"></h3>
+            <div id="mi-desc" style="background:rgba(0,0,0,0.5); padding:18px; border:1px solid var(--gold-dark); border-radius:6px; text-align:left; color:#fff; font-size:14px; line-height:1.7; white-space:pre-wrap; max-height:220px; overflow-y:auto;"></div>
+            <button class="btn-primary" style="margin-top:20px;" onclick="closeModal('modal-item')">닫기</button>
+        </div>
+    </div>
+
+    <!-- 로그인 -->
+    <div id="view-login" class="view active" style="justify-content: center;">
+        <div class="login-box">
+            <h2 style="color: var(--gold-light); font-family: var(--font-serif); margin-bottom: 30px;">ACCESS CODE</h2>
+            <input type="password" id="login-pw" placeholder="비밀번호 입력">
+            <button class="btn-primary" onclick="attemptLogin()" style="margin-top: 15px;">접속하기</button>
+        </div>
+    </div>
+
+    <!-- 로비 -->
+    <div id="view-lobby" class="view">
+        <div class="char-list" id="screen-list"></div>
+    </div>
+
+    <!-- 공지 -->
+    <div id="view-info" class="view">
+        <div class="section-head">
+            <h3>📢 시스템 공지사항</h3>
+            <p>커뮤니티의 주요 안내 및 업데이트 사항을 확인하세요.</p>
+        </div>
+        <div id="notice-list" style="display:flex; flex-direction:column; gap:15px;"></div>
+    </div>
+
+    <!-- 아이템 -->
+    <div id="view-items" class="view">
+        <div class="section-head" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
+            <div>
+                <h3>아이템</h3>
+                <p>지금까지 확보한 아이템입니다. 카드를 누르면 자세히 볼 수 있습니다.</p>
+            </div>
+            <span id="items-count" style="color:var(--gold-main); font-size:14px;"></span>
+        </div>
+        <div class="gallery-grid" id="items-list"></div>
+    </div>
+
+    <!-- 작전 구상 -->
+    <div id="view-plan" class="view">
+        <div class="plan-layout">
+            <aside class="plan-side">
+                <div class="plan-side-head">
+                    <span>쪽 목록</span>
+                    <button class="add-page-btn" onclick="openAddPage()">＋ 새 쪽</button>
+                </div>
+                <div id="plan-pages"></div>
+            </aside>
+            <section class="plan-main">
+                <div class="plan-head">
+                    <div>
+                        <h3 id="plan-page-title">작전 구상</h3>
+                        <div class="plan-meta" id="plan-page-meta"></div>
+                    </div>
+                    <div class="plan-tools">
+                        <span class="plan-updated" id="plan-updated"></span>
+                        <button class="btn-outline btn-small" id="plan-order-btn" onclick="toggleOrder()">최신순</button>
+                        <button class="btn-outline btn-small" onclick="loadPlan(false)">↻ 새로고침</button>
+                        <span id="plan-owner-tools"></span>
+                    </div>
+                </div>
+                <div class="composer">
+                    <div id="composer-avatar"></div>
+                    <div class="composer-body">
+                        <textarea id="plan-input" class="plan-textarea" maxlength="3000" placeholder="작전을 제안하거나 의견을 남겨 보세요." oninput="autoGrow(this); updateCount()" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();submitPost();}"></textarea>
+                        <div class="composer-foot">
+                            <span class="hint"><span id="plan-count">0</span> / 3000 · Ctrl+Enter로 등록</span>
+                            <button class="btn-primary btn-small" style="padding:8px 22px; border-radius:6px;" onclick="submitPost()">등록</button>
+                        </div>
+                    </div>
+                </div>
+                <div id="plan-posts" style="display:flex; flex-direction:column; gap:14px;"></div>
+            </section>
+        </div>
+    </div>
+
+    <!-- 소지품 -->
+    <div id="view-inventory" class="view">
+        <div style="margin-bottom:5px; padding-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
+            <h3 style="color:var(--gold-light); font-size:26px; margin:0 0 5px 0; font-family:var(--font-serif);">내 소지품 목록</h3>
+            <p style="color:var(--text-sub); margin:0;">소지한 물건을 사용하거나 다른 사람에게 양도할 수 있습니다.</p>
+        </div>
+        <div class="item-grid" id="inventory-list"></div>
+    </div>
+
+    <button id="btn-floating-guest" onclick="nav('guest-list', '명단')">명단</button>
+
+    <!-- 명단 -->
+    <div id="view-guest-list" class="view">
+        <h3 style="color:var(--gold-light); font-size:26px; margin-top:0; font-family:var(--font-serif); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">명단</h3>
+        <div id="guest-list-container" class="guest-grid"></div>
+    </div>
+
+</div>
+
+<script>
+    /* ================= 설정 ================= */
+    const API_URL = "https://script.google.com/macros/s/AKfycbzauP20JBYekAuxpxM_dO1B3nR2QjuX86A_W6RlqprMRcyqo5tyc0EU6Z9mI0OJoVmwmw/exec";
+    const PLAN_REFRESH_MS = 30000; // 작전 구상 자동 새로고침 간격
+    const SYNC_INTERVAL_MS = 120000; // 내 정보 자동 동기화 간격
+
+    // '화면' 시트 D열(연결화면) 또는 A열(이름) → 화면 ID
+    const VIEW_ALIAS = {
+        'info': 'info', '공지': 'info', '공지사항': 'info',
+        'items': 'items', 'item': 'items', '아이템': 'items',
+        'plan': 'plan', '작전 구상': 'plan', '작전구상': 'plan',
+        'guest-list': 'guest-list', '명단': 'guest-list',
+        'inventory': 'inventory', '소지품': 'inventory'
+    };
+
+    /* ================= 상태 ================= */
+    let pw = null, me = null, sys = null, plan = null;
+    let currentView = 'login', lastSync = 0, invGroups = [], guestCache = [];
+    const planState = { pageId: null, order: 'new', editing: null, replyOpen: new Set(), expanded: new Set(), lastLoad: null };
+
+    const $ = id => document.getElementById(id);
+
+    /* ================= 유틸 ================= */
+    function esc(s) {
+        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    function linkify(escaped) {
+        return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
+    }
+    function imgUrl(u) {
+        u = (u || '').toString().trim();
+        if (!u) return '';
+        const m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
+        if (m) return `https://lh3.googleusercontent.com/d/${m[1]}`;
+        return u;
+    }
+    function getJosa(word, type) {
+        if (!word) return '';
+        const c = word.charCodeAt(word.length - 1);
+        if (c < 0xac00 || c > 0xd7a3) return type.split('/')[0];
+        const jong = (c - 0xac00) % 28 > 0;
+        const [a, b] = type.split('/');
+        return jong ? a : b;
+    }
+    function statusColor(s) {
+        if (s === '독' || s === '맹독') return '#9141CB';
+        if (s === '화상') return '#E62829';
+        if (s === '마비') return '#FAC000';
+        if (s === '잠듦') return '#ADD2F5';
+        if (s === '얼음') return '#3DCEF3';
+        return '#666';
+    }
+    function showDash(v) { return (v === '' || v == null) ? '-' : v; }
+    function parseKst(s) {
+        const m = String(s || '').match(/(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})/);
+        if (!m) return null;
+        return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+09:00`);
+    }
+    function relTime(s) {
+        const d = parseKst(s);
+        if (!d) return esc(s);
+        const diff = (Date.now() - d.getTime()) / 1000;
+        if (diff < 60) return '방금';
+        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
+        return esc(s);
+    }
+    function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
+    function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
+    function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+    function showLoading(show) { $('loading-overlay').style.display = show ? 'flex' : 'none'; }
+    function openModal(id) { $(id).style.display = 'flex'; }
+    function closeModal(id) { $(id).style.display = 'none'; }
+
+    document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.style.display = 'none'; }));
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(o => o.style.display = 'none'); });
+
+    function confirmBox({ title, msg, sub = '', desc = '', okText = '확인' }, onOk) {
+        $('mc-title').innerText = title;
+        $('mc-msg').innerText = msg;
+        $('mc-sub').innerText = sub;
+        $('mc-desc').innerText = desc;
+        $('mc-desc').style.display = desc ? 'block' : 'none';
+        $('mc-ok').innerText = okText;
+        $('mc-ok').onclick = () => { closeModal('modal-confirm'); onOk(); };
+        openModal('modal-confirm');
+    }
+    function promptBox({ title, msg, value = '', placeholder = '' }, onOk) {
+        $('mp-title').innerText = title;
+        $('mp-msg').innerText = msg;
+        const input = $('mp-input');
+        input.value = value; input.placeholder = placeholder;
+        const go = () => { const v = input.value.trim(); if (!v) return input.focus(); closeModal('modal-prompt'); onOk(v); };
+        $('mp-ok').onclick = go;
+        input.onkeydown = e => { if (e.key === 'Enter') go(); };
+        openModal('modal-prompt');
+        setTimeout(() => input.focus(), 50);
+    }
+
+    /* ================= 통신 ================= */
+    async function api(action, data = {}, { loading = true, silent = false } = {}) {
+        if (loading) showLoading(true);
+        try {
+            const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, password: pw, ...data }) });
+            const j = await r.json();
+            if (!j.success && !silent) alert(j.msg || '요청에 실패했습니다.');
+            return j;
+        } catch (e) {
+            if (!silent) alert(`통신 실패!\n배포 설정을 확인하세요.\n(상세 에러: ${e.message})`);
+            return null;
+        } finally {
+            if (loading) showLoading(false);
+        }
+    }
+
+    /* ================= 로그인 / 동기화 ================= */
+    async function attemptLogin(auto = false, autoPw = null) {
+        const input = autoPw || $('login-pw').value.trim();
+        if (!input) return alert('비밀번호를 입력해주세요.');
+        if (!API_URL || API_URL.startsWith('여기에')) return alert('HTML 상단의 API_URL을 입력해주세요.');
+        const res = await api('login', { password: input }, { silent: auto });
+        if (!res || !res.success) { if (auto) sessionStorage.removeItem('pw'); return; }
+        pw = input;
+        sessionStorage.setItem('pw', pw);
+        applyData(res);
+        lastSync = Date.now();
+        $('top-bar').style.display = 'flex';
+        nav('lobby');
+        if (!auto) alert(`[시스템] ${me.name} 님, 환영합니다.`);
+    }
+
+    function applyData(res) {
+        if (res.me) me = res.me;
+        if (res.system) sys = res.system;
+        updateTopBar();
+    }
+
+    async function sync(force = false) {
+        if (!pw) return;
+        if (!force && Date.now() - lastSync < 15000) return;
+        lastSync = Date.now();
+        const res = await api('sync', {}, { loading: false, silent: true });
+        if (res && res.success) { applyData(res); renderCurrent(); }
+    }
+
+    function renderCurrent() {
+        if (currentView === 'lobby') renderScreens();
+        else if (currentView === 'info') renderNotices();
+        else if (currentView === 'items') renderItems();
+        else if (currentView === 'inventory') renderInventory();
+        else if (currentView === 'guest-list') renderGuests();
+    }
+
+    /* ================= 내비게이션 ================= */
+    window.addEventListener('popstate', e => {
+        if (e.state && e.state.viewId && (pw || e.state.viewId === 'login')) navUIOnly(e.state.viewId, e.state.title);
+        else navUIOnly('login', '');
+    });
+
+    window.onload = () => {
+        history.replaceState({ viewId: 'login', title: '' }, '', '#login');
+        $('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
+        const saved = sessionStorage.getItem('pw');
+        if (saved) attemptLogin(true, saved);
+        setInterval(() => { if (pw && !document.hidden) sync(true); }, SYNC_INTERVAL_MS);
+        setInterval(() => {
+            if (currentView === 'plan' && !document.hidden && !planState.editing) loadPlan(false, true);
+        }, PLAN_REFRESH_MS);
+    };
+
+    function nav(viewId, title = '') {
+        history.pushState({ viewId, title }, '', `#${viewId}`);
+        navUIOnly(viewId, title);
+    }
+
+    function navUIOnly(viewId, title = '') {
+        currentView = viewId;
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        const target = $('view-' + viewId);
+        if (target) target.classList.add('active');
+
+        const backBtn = $('btn-back'), titleEl = $('page-title'), floatBtn = $('btn-floating-guest');
+        backBtn.onclick = () => nav('lobby');
+        backBtn.innerText = '◀ 로비로';
+
+        if (viewId === 'lobby') {
+            backBtn.style.display = 'none';
+            titleEl.innerText = '✦ CHARACTER LIST ✦';
+            $('top-bar').style.display = 'flex';
+            floatBtn.style.display = 'block';
+        } else if (viewId === 'login') {
+            $('top-bar').style.display = 'none';
+            floatBtn.style.display = 'none';
+        } else {
+            backBtn.style.display = 'block';
+            titleEl.innerText = title ? `✦ ${title} ✦` : '✦ SYSTEM ✦';
+            floatBtn.style.display = 'none';
+        }
+
+        if (viewId === 'plan') { renderComposerAvatar(); if (plan) renderPlan(); loadPlan(!plan); }
+        else if (viewId !== 'login') { renderCurrent(); sync(); }
+    }
+
+    function openInventoryView() { nav('inventory', '내 소지품'); }
+
+    /* ================= 상단 바 ================= */
+    function updateTopBar() {
+        if (!me) return;
+        $('ui-name').innerText = me.name;
+        $('ui-hp').innerText = showDash(me.hp);
+        $('ui-maxhp').innerText = showDash(me.maxHp);
+        $('ui-zero').innerText = `소멸 ${me.zero || 0}회`;
+        const st = $('ui-status');
+        if (me.status) { st.innerText = me.status; st.style.background = statusColor(me.status); st.style.display = 'inline-block'; }
+        else st.style.display = 'none';
+        $('ui-inv-alert').style.display = hasNewItems() ? 'inline-block' : 'none';
+    }
+
+    /* ================= 로비 (화면 시트) ================= */
+    function renderScreens() {
+        const box = $('screen-list');
+        const screens = (sys && sys.screens) || [];
+        if (!screens.length) { box.innerHTML = '<p class="empty-msg">\'화면\' 시트에 등록된 메뉴가 없습니다.</p>'; return; }
+        box.innerHTML = screens.map((s, i) => {
+            const img = imgUrl(s.img);
+            return `
+                <div class="char-card-v2" style="${img ? `background-image:url('${esc(img)}');` : ''}" onclick="openScreen(${i})">
+                    <div class="char-details">
+                        <h2>${esc(s.name)}</h2>
+                        <div>${esc(s.role)}</div>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    function openScreen(i) {
+        const s = sys.screens[i];
+        const target = VIEW_ALIAS[s.link] || VIEW_ALIAS[s.name];
+        if (!target) return alert('추후 공개됩니다.');
+        nav(target, s.name);
+    }
+
+    /* ================= 공지 ================= */
+    function renderNotices() {
+        const list = $('notice-list');
+        const notices = (sys && sys.notices) || [];
+        if (!notices.length) { list.innerHTML = '<p class="empty-msg">등록된 공지사항이 없습니다.</p>'; return; }
+        list.innerHTML = notices.map(n => {
+            const cat = n.category || '안내';
+            let color = 'var(--gold-main)';
+            if (cat.includes('업데이트')) color = 'var(--text-sub)';
+            else if (cat.includes('중요')) color = '#ff5555';
+            return `
+                <div style="background:rgba(255,255,255,0.03); border-left:4px solid ${color}; padding:15px; border-radius:4px;">
+                    <h4 style="color:${color}; margin:0 0 10px 0; font-size:18px;">[${esc(cat)}] ${esc(n.title || '제목 없음')}</h4>
+                    <p style="color:#ccc; margin:0; font-size:14px; line-height:1.6;">${String(n.content || '').replace(/\n/g, '<br>')}</p>
+                    <span style="color:#666; font-size:12px; margin-top:10px; display:block;">${esc(n.date || '')}</span>
+                </div>`;
+        }).join('');
+    }
+
+    /* ================= 아이템 (아이템 시트, D열 체크만) ================= */
+    function renderItems() {
+        const list = $('items-list');
+        const items = (sys && sys.items) || [];
+        $('items-count').innerText = items.length ? `총 ${items.length}개` : '';
+        if (!items.length) { list.innerHTML = '<p class="empty-msg" style="grid-column:1/-1;">아직 획득한 아이템이 없습니다.</p>'; return; }
+        list.innerHTML = items.map((it, i) => {
+            const img = imgUrl(it.img);
+            return `
+                <div class="gallery-card" onclick="openItemModal(${i})">
+                    <div class="gallery-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : 'NO IMAGE'}</div>
+                    <div class="gallery-name">${esc(it.name)}</div>
+                    <div class="gallery-desc">${esc(it.desc)}</div>
+                </div>`;
+        }).join('');
+    }
+
+    function openItemModal(i) {
+        const it = sys.items[i];
+        const img = imgUrl(it.img);
+        $('mi-img').innerHTML = img ? `<img src="${esc(img)}" alt="" style="max-width:100%; max-height:300px; object-fit:contain; border-radius:8px; border:1px solid var(--gold-dark);">` : '';
+        $('mi-name').innerText = it.name;
+        $('mi-desc').innerText = it.desc || '설명이 없습니다.';
+        openModal('modal-item');
+    }
+
+    /* ================= 소지품 ================= */
+    function invKey() { return `inv_seen_${me.name}`; }
+    function invCounts() { const c = {}; (me.inventory || []).forEach(n => c[n] = (c[n] || 0) + 1); return c; }
+    function hasNewItems() {
+        if (!me) return false;
+        const seen = lsGet(invKey());
+        const cur = invCounts();
+        if (!seen) { lsSet(invKey(), cur); return false; }
+        return Object.keys(cur).some(n => cur[n] > (seen[n] || 0));
+    }
+
+    function renderInventory() {
+        const list = $('inventory-list');
+        const seen = lsGet(invKey()) || {};
+        const cur = invCounts();
+        invGroups = [];
+        const map = {};
+        (me.inventory || []).forEach(n => { if (!map[n]) { map[n] = { name: n, count: 0 }; invGroups.push(map[n]); } map[n].count++; });
+
+        if (!invGroups.length) {
+            list.innerHTML = '<p class="empty-msg" style="grid-column:1/-1;">소지품이 비어있습니다.</p>';
+        } else {
+            list.innerHTML = invGroups.map((g, i) => {
+                const isNew = g.count > (seen[g.name] || 0);
+                const effect = (sys.effects && sys.effects[g.name]) || '효과가 기록되지 않은 소지품입니다.';
+                return `
+                    <div class="item-card ${isNew ? 'is-new' : ''}">
+                        <div class="item-delete-btn" onclick="askDiscard(${i})" title="버리기">✖</div>
+                        <div style="padding-right:30px;">
+                            <div style="color:var(--gold-light); font-weight:bold; font-size:18px;">${esc(g.name)}${g.count > 1 ? `<span class="count-tag">×${g.count}</span>` : ''}${isNew ? '<span class="new-tag">NEW</span>' : ''}</div>
+                            <div style="font-size:14px; color:#ccc; margin-top:8px; white-space:pre-wrap;">${esc(effect)}</div>
+                        </div>
+                        <div style="display:flex; gap:10px; margin-top:15px;">
+                            <button class="btn-outline" style="flex:1; border-color:rgba(255,255,255,0.2);" onclick="askUse(${i})">사용</button>
+                            <button class="btn-outline" style="flex:1; border-color:rgba(255,255,255,0.2);" onclick="openTransfer(${i})">양도</button>
+                        </div>
+                    </div>`;
+            }).join('');
+        }
+        lsSet(invKey(), cur);
+        updateTopBar();
+    }
+
+    function askUse(i) {
+        const g = invGroups[i];
+        confirmBox({ title: g.name, desc: (sys.effects && sys.effects[g.name]) || '', msg: '사용하시겠습니까?', sub: '※ 사용하면 소지품 목록에서 1개 사라집니다.' }, async () => {
+            const res = await api('useItem', { itemName: g.name });
+            if (res && res.success) { applyData(res); renderInventory(); alert(`[${g.name}]${getJosa(g.name, '을/를')} 사용했습니다.`); }
+        });
+    }
+
+    function askDiscard(i) {
+        const g = invGroups[i];
+        confirmBox({ title: g.name, msg: '이 소지품을 버리시겠습니까?', sub: '※ 효과는 적용되지 않고 1개가 사라집니다.' }, async () => {
+            const res = await api('discardItem', { itemName: g.name });
+            if (res && res.success) { applyData(res); renderInventory(); alert(`[${g.name}]${getJosa(g.name, '을/를')} 버렸습니다.`); }
+        });
+    }
+
+    function openTransfer(i) {
+        const g = invGroups[i];
+        $('mt-item').innerText = g.name;
+        $('mt-target').value = '';
+        $('guest-names').innerHTML = ((sys && sys.guests) || []).filter(x => x.name !== me.name).map(x => `<option value="${esc(x.name)}">`).join('');
+        $('mt-ok').onclick = async () => {
+            const target = $('mt-target').value.trim();
+            if (!target) return alert('받는 사람 이름을 입력해주세요.');
+            closeModal('modal-transfer');
+            const res = await api('giveItem', { itemName: g.name, target });
+            if (res && res.success) { applyData(res); renderInventory(); alert(`[성공]\n[${g.name}]${getJosa(g.name, '을/를')} ${res.targetName} 님에게 양도했습니다.`); }
+        };
+        openModal('modal-transfer');
+        setTimeout(() => $('mt-target').focus(), 50);
+    }
+
+    /* ================= 명단 ================= */
+    function renderGuests() {
+        const box = $('guest-list-container');
+        const guests = ((sys && sys.guests) || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+        guestCache = guests;
+        if (!guests.length) { box.innerHTML = '<p style="color:var(--text-sub);">명단이 아직 등록되지 않았습니다.</p>'; return; }
+        box.innerHTML = guests.map((g, i) => {
+            const max = Number(g.maxHp) || 0, hp = Number(g.hp) || 0;
+            const pct = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
+            const color = pct >= 50 ? 'linear-gradient(90deg, #4caf50, #81c784)' : pct >= 25 ? 'linear-gradient(90deg, #ffc107, #ffd54f)' : 'linear-gradient(90deg, #f44336, #e57373)';
+            const img = imgUrl(g.img);
+            const imgTag = img ? `<img src="${esc(img)}" class="guest-img" alt="" loading="lazy">` : `<div class="guest-img" style="display:flex; justify-content:center; align-items:center; color:#555;">No Image</div>`;
+            const badge = g.status ? `<span style="background:${statusColor(g.status)}; color:#fff; font-size:11px; padding:2px 6px; border-radius:8px; margin-left:6px; font-weight:bold;">${esc(g.status)}</span>` : '';
+            return `
+                <div class="guest-card">
+                    ${imgTag}
+                    <h3 style="color:var(--gold-light); margin:0 0 2px 0; font-size:22px; font-family:var(--font-serif);">${esc(g.name)}</h3>
+                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:12px;">시트 기재 이름 : ${esc(g.sheetName)}</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                        <div style="font-size:12px; color:#fff; font-weight:bold; display:flex; align-items:center; flex-wrap:wrap;">
+                            <span style="color:var(--gold-main); margin-right:4px;">존재감</span> ${max > 0 ? `${hp} / ${max}` : '-'}
+                            <span class="zero-pill" title="존재감이 0이 된 횟수">소멸 ${g.zero || 0}</span>
+                            ${badge}
+                        </div>
+                        <button title="프로필 새 탭으로 열기" class="btn-outline" style="padding:2px 10px; font-size:12px; border-color:var(--gold-main); color:var(--gold-light); border-radius:4px; height:24px; line-height:1;" onclick="openDoc(${i})">▶</button>
+                    </div>
+                    <div class="guest-hp-bar"><div class="guest-hp-fill" style="width:${pct}%; background:${color};"></div></div>
+                    <div class="guest-stats">
+                        <span><span style="color:var(--gold-main);">힘</span> ${esc(showDash(g.str))}</span>
+                        <span><span style="color:var(--gold-main);">민첩</span> ${esc(showDash(g.dex))}</span>
+                        <span><span style="color:var(--gold-main);">운</span> ${esc(showDash(g.luk))}</span>
+                    </div>
+                </div>`;
+        }).join('');
+    }
+
+    /* ================= 프로필 (새 탭) ================= */
+    function openDoc(i) {
+        const g = guestCache[i];
+        if (!g.link) return alert('등록된 프로필 링크가 없습니다.');
+        let url = g.link.trim();
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        window.open(url, '_blank', 'noopener');
+    }
+
+    /* ================= 작전 구상 ================= */
+    function findGuest(name) { return ((sys && sys.guests) || []).find(g => g.name === name); }
+    function avatarHtml(name, small = false) {
+        const g = findGuest(name);
+        const img = g ? imgUrl(g.img) : '';
+        const cls = `avatar${small ? ' sm' : ''}`;
+        if (img) return `<img class="${cls}" src="${esc(img)}" alt="" loading="lazy">`;
+        return `<div class="${cls}">${esc((name || '?').charAt(0))}</div>`;
+    }
+    function renderComposerAvatar() { if (me) $('composer-avatar').innerHTML = avatarHtml(me.name); }
+    function updateCount() { $('plan-count').innerText = $('plan-input').value.length; }
+
+    function planSeenKey() { return `plan_seen_${me.name}`; }
+
+    async function loadPlan(showLoad = true, silent = false) {
+        const res = await api('getPlan', {}, { loading: showLoad, silent });
+        if (res && res.success) { plan = res.plan; planState.lastLoad = new Date(); renderPlan(); }
+    }
+
+    function pageCounts() {
+        const c = {};
+        plan.posts.forEach(p => { if (!p.deleted) c[p.pageId] = (c[p.pageId] || 0) + 1; });
+        return c;
+    }
+
+    function renderPlan() {
+        if (!plan || !me) return;
+        const pages = plan.pages;
+        if (!pages.some(p => p.id === planState.pageId)) planState.pageId = pages.length ? pages[0].id : null;
+
+        const counts = pageCounts();
+        let seen = lsGet(planSeenKey());
+        if (!seen) { seen = {}; pages.forEach(p => seen[p.id] = counts[p.id] || 0); }
+        if (planState.pageId) seen[planState.pageId] = counts[planState.pageId] || 0;
+        lsSet(planSeenKey(), seen);
+
+        $('plan-pages').innerHTML = pages.length ? pages.map((p, i) => `
+            <button class="page-chip ${p.id === planState.pageId ? 'active' : ''}" onclick="selectPage('${p.id}')" title="${esc(p.title)}">
+                <span class="page-no">${i + 1}쪽</span>
+                <span class="page-name">${esc(p.title)}</span>
+                ${(counts[p.id] || 0) > (seen[p.id] || 0) ? '<span class="page-new"></span>' : ''}
+                <span class="page-count">${counts[p.id] || 0}</span>
+            </button>`).join('') : '<div class="hint">쪽이 없습니다.</div>';
+
+        const idx = pages.findIndex(p => p.id === planState.pageId);
+        const page = pages[idx];
+        if (!page) {
+            $('plan-page-title').innerText = '작전 구상';
+            $('plan-page-meta').innerText = '＋ 새 쪽을 만들어 작전을 시작하세요.';
+            $('plan-owner-tools').innerHTML = '';
+            $('plan-posts').innerHTML = '';
+            return;
+        }
+        $('plan-page-title').innerText = `${idx + 1}쪽 · ${page.title}`;
+        const topCount = plan.posts.filter(p => p.pageId === page.id && !p.parentId && !p.deleted).length;
+        $('plan-page-meta').innerText = `${page.owner} 님이 만든 쪽 · 글 ${topCount}개`;
+        $('plan-owner-tools').innerHTML = page.owner === me.name ? `
+            <button class="link-btn" onclick="openRenamePage()">이름 변경</button>
+            <button class="link-btn danger" onclick="askDeletePage()">쪽 삭제</button>` : '';
+        $('plan-order-btn').innerText = planState.order === 'new' ? '최신순 ⇅' : '오래된순 ⇅';
+        $('plan-updated').innerText = planState.lastLoad ? `${planState.lastLoad.toTimeString().slice(0, 5)} 기준` : '';
+        renderPosts(page.id);
+    }
+
+    function renderPosts(pageId) {
+        // 작성 중인 댓글/수정 내용 보존
+        const drafts = {};
+        document.querySelectorAll('#plan-posts textarea[data-draft]').forEach(t => drafts[t.dataset.draft] = t.value);
+        const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.draft : null;
+
+        const onPage = plan.posts.filter(p => p.pageId === pageId);
+        let tops = onPage.filter(p => !p.parentId);
+        if (planState.order === 'new') tops = tops.slice().reverse();
+        const children = {};
+        onPage.filter(p => p.parentId).forEach(c => (children[c.parentId] = children[c.parentId] || []).push(c));
+
+        const box = $('plan-posts');
+        if (!tops.length) { box.innerHTML = '<div class="empty-msg">아직 글이 없습니다. 첫 작전을 제안해 보세요!</div>'; return; }
+        box.innerHTML = tops.map(p => postHtml(p, children[p.id] || [], drafts)).join('');
+        box.querySelectorAll('textarea').forEach(autoGrow);
+        if (focused) { const t = box.querySelector(`textarea[data-draft="${focused}"]`); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
+    }
+
+    function bodyOrEdit(p, drafts, isComment) {
+        if (planState.editing === p.id) {
+            const key = `edit-${p.id}`;
+            const val = drafts[key] != null ? drafts[key] : p.content;
+            return `
+                <div class="edit-box" ${isComment ? 'style="margin-left:0;"' : ''}>
+                    <textarea data-draft="${key}" maxlength="3000" oninput="autoGrow(this)" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();saveEdit('${p.id}');}">${esc(val)}</textarea>
+                    <div class="edit-actions">
+                        <button class="btn-outline btn-small" onclick="cancelEdit()">취소</button>
+                        <button class="btn-primary btn-small" onclick="saveEdit('${p.id}')">저장</button>
+                    </div>
+                </div>`;
+        }
+        if (isComment) return `<div class="comment-body">${linkify(esc(p.content))}</div>`;
+        if (p.deleted) return `<div class="post-body deleted">삭제된 글입니다.</div>`;
+        return `<div class="post-body">${linkify(esc(p.content))}</div>`;
+    }
+
+    function toolsHtml(p) {
+        if (p.deleted || p.author !== me.name || planState.editing === p.id) return '';
+        return `<div class="post-actions">
+            <button class="link-btn" onclick="startEdit('${p.id}')">수정</button>
+            <button class="link-btn danger" onclick="askDeletePost('${p.id}')">삭제</button>
+        </div>`;
+    }
+
+    function postHtml(p, comments, drafts) {
+        const LIMIT = 3;
+        const expanded = planState.expanded.has(p.id);
+        const hidden = !expanded && comments.length > LIMIT ? comments.length - LIMIT : 0;
+        const shown = hidden ? comments.slice(-LIMIT) : comments;
+        const replyKey = `reply-${p.id}`;
+        const replyOpen = planState.replyOpen.has(p.id) || (drafts[replyKey] || '').length > 0;
+
+        const commentsHtml = shown.map(c => `
+            <div class="comment">
+                ${avatarHtml(c.author, true)}
+                <div class="comment-main">
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="post-name" style="font-size:13px;">${esc(c.author)}</span>
+                        ${c.edited ? '<span class="post-time" style="margin-left:0;">(수정됨)</span>' : ''}
+                        <span style="flex:1;"></span>
+                        ${toolsHtml(c)}
+                    </div>
+                    ${bodyOrEdit(c, drafts, true)}
+                </div>
+            </div>`).join('');
+
+        const showComments = comments.length > 0 || (replyOpen && !p.deleted);
+        return `
+            <div class="post ${p.author === me.name && !p.deleted ? 'mine' : ''}">
+                <div class="post-head">
+                    ${avatarHtml(p.author)}
+                    <div class="post-who">
+                        <span class="post-name">${p.deleted ? '-' : esc(p.author)}</span>
+                        ${p.edited && !p.deleted ? '<span class="post-time">(수정됨)</span>' : ''}
+                    </div>
+                    ${toolsHtml(p)}
+                </div>
+                ${bodyOrEdit(p, drafts, false)}
+                <div class="post-foot">
+                    ${p.deleted ? '' : `<button class="link-btn" onclick="toggleReply('${p.id}')">💬 댓글${comments.length ? ' ' + comments.length : ''} · ${replyOpen ? '닫기' : '달기'}</button>`}
+                </div>
+                ${showComments ? `<div class="comments">
+                    ${hidden ? `<button class="link-btn" style="align-self:flex-start;" onclick="expandComments('${p.id}')">이전 댓글 ${hidden}개 더 보기</button>` : ''}
+                    ${commentsHtml}
+                    ${replyOpen && !p.deleted ? `
+                        <div class="reply-box">
+                            <textarea data-draft="${replyKey}" maxlength="3000" placeholder="댓글을 입력하세요 (Ctrl+Enter로 등록)" oninput="autoGrow(this)" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();submitReply('${p.id}');}">${esc(drafts[replyKey] || '')}</textarea>
+                            <button class="btn-primary btn-small" style="border-radius:6px; padding:9px 16px;" onclick="submitReply('${p.id}')">등록</button>
+                        </div>` : ''}
+                </div>` : ''}
+            </div>`;
+    }
+
+    function selectPage(id) {
+        planState.pageId = id; planState.editing = null;
+        planState.replyOpen.clear(); planState.expanded.clear();
+        renderPlan();
+        $('view-plan').scrollTop = 0;
+    }
+    function toggleOrder() { planState.order = planState.order === 'new' ? 'old' : 'new'; renderPlan(); }
+    function toggleReply(id) {
+        if (planState.replyOpen.has(id)) planState.replyOpen.delete(id); else planState.replyOpen.add(id);
+        renderPosts(planState.pageId);
+        const t = document.querySelector(`textarea[data-draft="reply-${id}"]`);
+        if (t) t.focus();
+    }
+    function expandComments(id) { planState.expanded.add(id); renderPosts(planState.pageId); }
+    function startEdit(id) { planState.editing = id; renderPosts(planState.pageId); const t = document.querySelector(`textarea[data-draft="edit-${id}"]`); if (t) t.focus(); }
+    function cancelEdit() { planState.editing = null; renderPosts(planState.pageId); }
+
+    function afterPlanChange(res) {
+        if (res && res.success) { plan = res.plan; planState.lastLoad = new Date(); renderPlan(); return true; }
+        return false;
+    }
+
+    async function submitPost() {
+        const input = $('plan-input');
+        const content = input.value.trim();
+        if (!content) return input.focus();
+        if (!planState.pageId) return alert('먼저 쪽을 만들어 주세요.');
+        const res = await api('addPost', { pageId: planState.pageId, content });
+        if (afterPlanChange(res)) { input.value = ''; autoGrow(input); updateCount(); }
+    }
+
+    async function submitReply(postId) {
+        const t = document.querySelector(`textarea[data-draft="reply-${postId}"]`);
+        const content = t ? t.value.trim() : '';
+        if (!content) return t && t.focus();
+        const res = await api('addPost', { pageId: planState.pageId, parentId: postId, content });
+        if (res && res.success) {
+            t.value = '';
+            planState.replyOpen.delete(postId);
+            planState.expanded.add(postId);
+            afterPlanChange(res);
+        }
+    }
+
+    async function saveEdit(id) {
+        const t = document.querySelector(`textarea[data-draft="edit-${id}"]`);
+        const content = t ? t.value.trim() : '';
+        if (!content) return t && t.focus();
+        const res = await api('editPost', { id, content });
+        if (res && res.success) { planState.editing = null; t.value = ''; afterPlanChange(res); }
+    }
+
+    function askDeletePost(id) {
+        confirmBox({ title: '글 삭제', msg: '이 글을 삭제하시겠습니까?', sub: '※ 댓글이 달린 글은 "삭제된 글입니다"로 표시됩니다.', okText: '삭제' }, async () => {
+            afterPlanChange(await api('deletePost', { id }));
+        });
+    }
+
+    function openAddPage() {
+        promptBox({ title: '새 쪽 만들기', msg: '쪽 이름을 정해 주세요. (최대 30자)', placeholder: '예) 탈출 경로, 역할 분담' }, async title => {
+            const res = await api('addPage', { title });
+            if (res && res.success) { plan = res.plan; planState.pageId = res.pageId || planState.pageId; planState.lastLoad = new Date(); renderPlan(); }
+        });
+    }
+    function openRenamePage() {
+        const page = plan.pages.find(p => p.id === planState.pageId);
+        promptBox({ title: '쪽 이름 변경', msg: '새 이름을 입력하세요.', value: page.title }, async title => {
+            afterPlanChange(await api('renamePage', { pageId: page.id, title }));
+        });
+    }
+    function askDeletePage() {
+        const page = plan.pages.find(p => p.id === planState.pageId);
+        confirmBox({ title: page.title, msg: '이 쪽을 삭제하시겠습니까?', sub: '※ 쪽 안의 글도 함께 보이지 않게 됩니다.', okText: '삭제' }, async () => {
+            afterPlanChange(await api('deletePage', { pageId: page.id }));
+        });
+    }
+</script>
+</body>
+</html>
