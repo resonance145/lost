@@ -1,981 +1,1275 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>로비</title>
-    <style>
-        :root {
-            --bg-color: #1a191e; --panel-bg: rgba(35, 33, 40, 0.95);
-            --gold-main: #d4b26f; --gold-light: #f7e0a3; --gold-dark: #8c703b;
-            --text-main: #f0f0f0; --text-sub: #a0a0b0;
-            --font-main: 'Pretendard', 'Malgun Gothic', sans-serif;
-            --font-serif: 'Georgia', 'Times New Roman', serif;
-        }
-        body { font-family: var(--font-main); background: radial-gradient(circle at center, #2a2830 0%, #111014 100%); color: var(--text-main); margin: 0; padding: 0; height: 100vh; display: flex; justify-content: center; align-items: center; overflow: hidden; }
-        .game-container { width: 100%; max-width: 1200px; height: 90vh; max-height: 800px; position: relative; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid rgba(255,255,255,0.05); display: flex; flex-direction: column; background-color: var(--bg-color); }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>깨어진 세계</title>
+<link rel="icon" type="image/png" href="https://i.postimg.cc/bvBqfq6h/icon.png">
+<link rel="apple-touch-icon" href="https://i.postimg.cc/bvBqfq6h/icon.png">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+    /* 🌌 테마: 다크-블루 심연 */
+    body {
+        font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+        background: radial-gradient(circle at 50% 50%, #0d1b2a 0%, #040814 100%);
+        color: #e0e1dd; display: flex; padding: 15px; user-select: none; margin: 0; height: 100vh; overflow: hidden; letter-spacing: 0.5px;
+    }
 
-        #loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 300; display: none; justify-content: center; align-items: center; color: var(--gold-main); font-size: 24px; font-family: var(--font-serif); }
-        .view { display: none; flex: 1; padding: 20px 40px; overflow-y: auto; width: 100%; box-sizing: border-box; }
-        .view.active { display: flex; flex-direction: column; animation: fadeIn 0.4s; }
-        @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+    /* 🎛️ 사이드바 (UI 패널 - 좌측) */
+    #sidebar {
+        width: 270px; min-width: 270px; padding: 15px; background: #0b132b; border: 1px solid #1c2541; border-radius: 8px; margin-right: 15px;
+        overflow-y: auto; box-shadow: 10px 0 30px rgba(0, 0, 0, 0.8); z-index: 5000;
+    }
+    #sidebar::-webkit-scrollbar { width: 6px; }
+    #sidebar::-webkit-scrollbar-thumb { background: #415a77; border-radius: 4px; }
 
-        .top-bar { display: none; justify-content: space-between; align-items: center; padding: 15px 30px; background: rgba(0,0,0,0.5); z-index: 10; border-bottom: 1px solid var(--gold-dark); gap: 12px; }
-        .top-bar-left { display: flex; align-items: center; gap: 15px; }
-        .back-btn { background: transparent; border: 1px solid var(--gold-main); color: var(--gold-main); padding: 5px 15px; cursor: pointer; border-radius: 20px; display: none; }
-        .back-btn:hover { background: var(--gold-main); color: #000; }
-        .page-title { font-family: var(--font-serif); font-size: 24px; color: var(--gold-light); }
-        .resources { display: flex; gap: 15px; flex-wrap: wrap; justify-content: flex-end; }
-        .resource-item { background: rgba(0,0,0,0.8); border: 1px solid var(--gold-dark); padding: 5px 15px; border-radius: 15px; display: flex; align-items: center; gap: 4px; font-size: 14px; position: relative; user-select: none; }
-        .inv-btn { border-color: var(--gold-light); cursor: pointer; transition: 0.2s; }
-        .inv-btn:hover { background: var(--gold-dark); color: #fff; }
-        .zero-count { font-size: 11px; color: var(--text-sub); margin-left: 6px; }
-        .status-badge { padding: 2px 8px; border-radius: 12px; margin-left: 8px; font-weight: bold; font-size: 12px; color: #fff; }
+    /* 🎛️ 퀘스트/단서 보드 (UI 패널 - 우측) */
+    #right-panel {
+        width: 260px; min-width: 260px; padding: 15px; background: #0b132b; border: 1px solid #1c2541; border-radius: 8px; margin-left: 15px;
+        overflow-y: auto; box-shadow: -10px 0 30px rgba(0, 0, 0, 0.8); z-index: 5000;
+        display: flex; flex-direction: column; gap: 12px;
+    }
+    #right-panel::-webkit-scrollbar { width: 6px; }
+    #right-panel::-webkit-scrollbar-thumb { background: #415a77; border-radius: 4px; }
 
-        .alert-badge { position: absolute; top: -5px; right: -2px; background: #ff3333; color: white; font-weight: bold; font-size: 11px; padding: 1px 6px; border-radius: 10px; box-shadow: 0 0 8px #ff3333; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    .board-section { background: #040814; border: 1px solid #1c2541; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; box-shadow: inset 0 0 10px rgba(0,0,0,0.5); }
+    .board-title { color: #00f5d4; font-size: 13px; font-weight: bold; margin-bottom: 8px; border-bottom: 1px dashed #1c2541; padding-bottom: 6px; display: flex; align-items: center; gap: 5px; }
+    
+    .quest-input { width: 100%; height: 70px; background: transparent; color: #e0e1dd; border: none; resize: none; outline: none; font-family: inherit; font-size: 12px; line-height: 1.5; }
+    .quest-display { font-size: 12px; line-height: 1.5; white-space: pre-wrap; color: #e0e1dd; min-height: 70px; }
+    
+    /* 🌟 체크박스 퀘스트 아이템 스타일 */
+    .quest-item { display: flex; align-items: flex-start; gap: 8px; padding: 5px 0; font-size: 12px; border-bottom: 1px solid #1c2541; }
+    .quest-item:last-child { border-bottom: none; }
+    .quest-item input[type="checkbox"] { cursor: pointer; accent-color: #00f5d4; margin-top: 2px; }
+    .quest-item.completed span { text-decoration: line-through; color: #415a77; }
+    .del-btn { cursor: pointer; color: #ff4d4d; font-size: 11px; margin-left: auto; background: none; border: none; outline: none; padding: 0 5px; }
+    .del-btn:hover { color: #ff9f1c; }
+    .add-quest-box { display: flex; gap: 5px; margin-top: 8px; border-top: 1px dashed #1c2541; padding-top: 8px; }
+    .quest-input-field { flex: 1; background: #0b132b; border: 1px solid #415a77; color: #fff; padding: 6px; border-radius: 4px; font-size: 11px; outline: none; }
+    
+    .clue-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; min-height: 150px; }
+    .clue-list::-webkit-scrollbar { width: 4px; }
+    .clue-list::-webkit-scrollbar-thumb { background: #415a77; }
+    
+    .clue-item { background: #1b263b; margin-bottom: 6px; padding: 8px; border-radius: 4px; border-left: 3px solid #00f5d4; font-size: 11px; line-height: 1.4; color: #e0e1dd; word-break: keep-all; box-shadow: 2px 2px 5px rgba(0,0,0,0.3); }
+    .clue-item b { color: #7fb3d5; margin-right: 5px; }
+    .clue-item.marker-item { border-left-color: #ff9f1c; background: #141b2d; }
 
-        .login-box { margin: auto; padding: 40px; background: var(--panel-bg); border: 1px solid var(--gold-dark); border-radius: 12px; text-align: center; width: 320px; max-width: 100%; box-sizing: border-box; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .login-box input { width: 100%; padding: 12px; margin: 15px 0; background: rgba(0,0,0,0.5); border: 1px solid var(--text-sub); color: #fff; box-sizing: border-box; text-align: center; font-size: 16px; letter-spacing: 2px; }
-        .login-box input:focus { outline: none; border-color: var(--gold-main); }
+    h1 { font-size: 18px; color: #778da9; text-align: center; margin-bottom: 15px; font-weight: 600; border-bottom: 1px solid #1c2541; padding-bottom: 10px; }
+    h3 { font-size: 12px; margin-bottom: 8px; color: #778da9; font-weight: bold; margin-top: 15px; }
+    
+    .btn { display: block; width: 100%; padding: 8px; box-sizing: border-box; background: #1b263b; border: 1px solid #415a77; color: #e0e1dd; border-radius: 4px; cursor: pointer; margin-bottom: 6px; font-size: 12px; text-align: center; transition: all 0.2s; }
+    .btn:hover { background: #415a77; color: #fff;}
+    
+    /* 🌟 버튼 그리드 스타일 */
+    .system-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 15px; }
+    .system-grid .btn { margin-bottom: 0; font-weight: bold; }
+    
+    .tool-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-bottom: 10px; }
+    .tool-grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 4px; margin-bottom: 10px; }
+    
+    .tool-grid .btn, .tool-grid-2 .btn { 
+        margin-bottom: 0; 
+        padding: 6px 2px; 
+        font-size: 11px; 
+        line-height: 1.2;
+        display: flex; 
+        flex-direction: column; 
+        align-items: center; 
+        justify-content: center; 
+        text-align: center; 
+        word-break: keep-all; 
+    }
 
-        .btn-primary { background: linear-gradient(135deg, var(--gold-dark) 0%, var(--gold-main) 100%); color: #111; border: none; padding: 12px 24px; border-radius: 4px; font-weight: bold; cursor: pointer; transition: 0.2s; width: 100%; font-family: var(--font-main); }
-        .btn-primary:hover:not(:disabled) { filter: brightness(1.2); transform: translateY(-2px); }
-        .btn-primary:disabled { background: #333; color: #666; cursor: not-allowed; }
-        .btn-outline { background: transparent; color: var(--text-main); border: 1px solid var(--text-sub); padding: 10px 20px; border-radius: 4px; cursor: pointer; transition: 0.2s; font-family: var(--font-main); }
-        .btn-outline:hover, .btn-outline.selected { border-color: var(--gold-main); color: var(--gold-light); background: rgba(212, 178, 111, 0.1); }
-        .btn-cancel { background: #666; color: #fff; border: none; }
-        .btn-cancel:hover { background: #555; }
-        .btn-small { padding: 5px 12px; font-size: 12px; border-radius: 15px; width: auto; }
+    .tool-btn.active-tool { background: #3e5c76 !important; border-color: #00f5d4 !important; color: #fff !important; box-shadow: inset 0 0 0 2px #00f5d4; }
+    
+    .toggle-container { display: flex; background: #080c16; padding: 4px; border-radius: 4px; margin-bottom: 8px; border: 1px solid #1c2541; }
+    .toggle-btn { flex: 1; padding: 6px; background: transparent; color: #778da9; border: none; cursor: pointer; font-size: 11px; border-radius: 3px; transition: 0.2s; font-weight: bold; }
+    .toggle-btn.active, .toggle-btn.gimmick-type-active { background: #415a77; color: #fff; }
+    .toggle-btn.prop-on { color: #00f5d4; }
+    .toggle-btn.prop-off { color: #415a77; text-decoration: line-through; }
 
-        .section-head { background: rgba(0,0,0,0.3); border: 1px solid var(--gold-dark); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
-        .section-head h3 { color: var(--gold-light); font-size: 26px; margin: 0 0 5px 0; font-family: var(--font-serif); }
-        .section-head p { color: var(--text-sub); margin: 0; }
+    .input-field { width: 100%; padding: 6px; box-sizing: border-box; background: #040814; border: 1px solid #415a77; color: #fff; border-radius: 4px; margin-bottom: 10px; font-size:11px; }
 
-        /* 명단 */
-        .guest-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 20px; padding: 20px 0; width: 100%; box-sizing: border-box; align-items: stretch; }
-        .guest-card { background: rgba(0,0,0,0.6); border: 1px solid var(--gold-dark); border-radius: 12px; padding: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.3s; display: flex; flex-direction: column; }
-        .guest-card:hover { border-color: var(--gold-light); transform: translateY(-5px); }
-        .guest-img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; background: #222; }
-        .guest-hp-bar { width: 100%; background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin-top: 5px; margin-bottom: 12px; box-shadow: inset 0 0 5px #000; }
-        .guest-hp-fill { height: 100%; transition: width 0.3s, background 0.3s; }
-        .guest-stats { display: flex; justify-content: space-around; color: #ddd; font-size: 13px; margin: 10px 0 0 0; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 6px; border: 1px dashed var(--gold-dark); font-weight: bold; }
-        .zero-pill { font-size: 10px; color: var(--text-sub); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; padding: 1px 6px; margin-left: 6px; font-weight: normal; }
-        #btn-floating-guest { position: absolute; bottom: 30px; right: 30px; z-index: 50; display: none; padding: 10px 26px; border-radius: 30px; font-size: 15px; font-weight: bold; border: 1px solid var(--gold-main); background: rgba(0,0,0,0.8); color: var(--gold-light); cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.6); transition: 0.2s; }
-        #btn-floating-guest:hover { background: var(--gold-dark); color: #fff; transform: scale(1.05); }
+    /* 🎯 좌표계 (9x9) - 캡처 여백 방지를 위해 컨텐츠 크기에 맞춤 설정 */
+    .coord-container {
+        display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(11, 19, 43, 0.7); 
+        padding: 10px; border-radius: 8px; border: 1px solid #1c2541; position: relative; overflow: auto;
+        width: max-content; height: max-content; margin: auto;
+    }
+    .col-labels { display: flex; margin-left: 40px; margin-bottom: 10px; }
+    .col-label { width: 62px; text-align: center; margin-right: 4px; color: #778da9; font-size: 14px; font-weight: bold; }
+    .col-label:last-child { margin-right: 0; }
+    
+    .board-body { display: flex; align-items: flex-start; }
+    .row-labels { display: flex; flex-direction: column; margin-right: 10px; }
+    .row-label { height: 62px; width: 30px; display: flex; align-items: center; justify-content: center; margin-bottom: 4px; color: #778da9; font-size: 14px; font-weight: bold; }
+    .row-label:last-child { margin-bottom: 0; }
 
-        /* 로비 */
-        .char-list { display: flex; gap: 30px; justify-content: center; margin-top: 50px; flex-wrap: wrap; }
-        .char-card-v2 { width: 260px; height: 380px; background-color: #222; background-size: cover; background-position: center; border-radius: 12px; cursor: pointer; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; transition: 0.3s; position: relative; border: 1px solid var(--gold-dark); box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); }
-        .char-card-v2:hover { transform: translateY(-10px); border-color: var(--gold-light); box-shadow: 0 0 20px var(--gold-dark); }
-        .char-details { padding: 20px; text-align: center; background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(0,0,0,0.7) 70%, transparent); }
-        .char-details h2 { margin: 0; color: var(--gold-light); font-family: var(--font-serif); font-size: 26px; }
-        .char-details div { color: #aaa; font-size: 13px; letter-spacing: 1px; margin-top: 5px; }
+    #game-container { position: relative; width: max-content; height: max-content; outline: none; }
+    #game-board { display: grid; grid-template-columns: repeat(9, 62px); grid-template-rows: repeat(9, 62px); gap: 4px; }
 
-        /* 소지품 */
-        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
-        .item-card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; position: relative; }
-        .item-card:hover { border-color: var(--gold-dark); }
-        .item-card.is-new { border-color: rgba(255, 85, 85, 0.6); }
-        .new-tag { font-size: 10px; background: #ff3333; color: #fff; padding: 1px 6px; border-radius: 8px; margin-left: 6px; vertical-align: middle; }
-        .count-tag { font-size: 12px; color: var(--gold-main); margin-left: 6px; }
-        .item-delete-btn { position: absolute; top: 12px; right: 12px; width: 22px; height: 22px; border: 1px solid #fff; border-radius: 4px; color: #fff; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 12px; font-weight: bold; transition: 0.2s; background: rgba(0,0,0,0.3); }
-        .item-delete-btn:hover { background: #ff3333; border-color: #ff3333; }
+    /* 🧩 블럭 */
+    .block {
+        width: 62px; height: 62px; background-color: #1b263b; position: relative; cursor: pointer; box-sizing: border-box;
+        display: grid; grid-template-columns: repeat(3, 20px); grid-template-rows: repeat(3, 20px);
+        border: 1px solid #415a77; border-radius: 2px; box-shadow: 2px 2px 5px rgba(0,0,0,0.5);
+    }
+    .block.empty-block { background-color: #040814; border: 1px dashed #1c2541; box-shadow: none; }
+    /* 🌊 수로: 물이 차면 검보랏빛 신비한 물이 은은하게 빛난다 (정적 파도 무늬) */
+    .block.surf-block-low { background-color: #040814; border: 1px dashed #1c2541; box-shadow: none; } /* 물 빠짐 = 허공과 똑같이 보임 */
+    .block.surf-block-high { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12'%3E%3Cpath d='M0 6 Q6 1 12 6 T24 6' fill='none' stroke='rgba(222,190,255,0.32)' stroke-width='1.1'/%3E%3Cpath d='M0 11 Q6 7 12 11 T24 11' fill='none' stroke='rgba(190,140,255,0.18)' stroke-width='0.8'/%3E%3C/svg%3E"), radial-gradient(ellipse at 28% 22%, rgba(196,128,255,0.38) 0%, transparent 58%), radial-gradient(ellipse at 78% 85%, rgba(120,60,200,0.30) 0%, transparent 60%), linear-gradient(135deg, #12061f 0%, #241040 38%, #3b1868 62%, #4d2386 78%, #1d0b33 100%); border: 1px solid #7a4fc0; box-shadow: inset 0 0 14px rgba(178,110,255,0.45), 0 0 8px rgba(150,80,240,0.45); }
+    .tile-surf-low { background: transparent !important; box-shadow: none !important; }
+    .tile-surf-high { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7'%3E%3Cpath d='M0 4 Q2.5 1 5 4 T10 4' fill='none' stroke='rgba(222,190,255,0.38)' stroke-width='0.9'/%3E%3C/svg%3E"), radial-gradient(ellipse at 28% 22%, rgba(196,128,255,0.38) 0%, transparent 58%), radial-gradient(ellipse at 78% 85%, rgba(120,60,200,0.30) 0%, transparent 60%), linear-gradient(135deg, #12061f 0%, #241040 38%, #3b1868 62%, #4d2386 78%, #1d0b33 100%) !important; box-shadow: inset 0 0 6px rgba(190,130,255,0.55), 0 0 4px rgba(150,80,240,0.5) !important; }
+    /* GM 설계 모드 전용: 물이 빠진 수로가 어디 깔렸는지 줄무늬로 표시 (탐험 모드·PL 캡처에선 보이지 않음) */
+    body.gm-edit .block.surf-block-low { background: repeating-linear-gradient(45deg, rgba(170,120,240,0.55) 0px, rgba(170,120,240,0.55) 2px, transparent 2px, transparent 7px), #0a0618; border: 1px dashed #8a5fd0; }
+    body.gm-edit .tile-surf-low { background: repeating-linear-gradient(45deg, rgba(170,120,240,0.6) 0px, rgba(170,120,240,0.6) 1.5px, transparent 1.5px, transparent 5px), rgba(10,6,24,0.85) !important; outline: 1px dashed rgba(170,120,240,0.7); outline-offset: -1px; }
+    /* ⇅ 부유 블럭: 가라앉음 = 길 모양 윤곽선만 + 안으로 꺼진 그림자, 떠오름 = 아래에 떠 있는 그림자 */
+    .block.float-sunk { background: #060b18; border: 1px dashed #2f7d7a; box-shadow: inset 0 0 12px #000; }
+    .block.float-sunk .tile.path-ghost { background: transparent !important; box-shadow: inset 0 0 0 1px rgba(94, 214, 205, 0.55) !important; }
+    .block.float-up { box-shadow: 0 7px 9px -5px rgba(94, 214, 205, 0.7); border-color: #5ed6cd; }
+    .float-seal { position: absolute; top: 1px; right: 3px; font-size: 11px; color: #5ed6cd; z-index: 16; pointer-events: none; text-shadow: 0 0 4px #000; }
+    .block.wall-block { background-color: #0b132b; border-color: #040814; background-image: repeating-linear-gradient(45deg, #1c2541 25%, transparent 25%, transparent 75%, #1c2541 75%, #1c2541); background-size: 8px 8px; cursor: not-allowed; }
+    
+    .block.selected-block::after { content: ''; position: absolute; inset: -3px; border: 3px solid #00b4d8; box-shadow: 0 0 15px rgba(0, 180, 216, 0.6); z-index: 100; pointer-events: none; }
+    .block.highlight::after { content: ''; position: absolute; inset: -2px; background-color: rgba(0, 245, 212, 0.15); border: 2px solid #00f5d4; z-index: 100; pointer-events: none; }
+    
+    .constraint-icon { position: absolute; font-size: 10px; font-weight: bold; z-index: 15; color: #fff; background: rgba(0,0,0,0.8); padding: 2px 4px; border-radius: 2px; pointer-events: none; }
+    .constraint-icon.no-move { bottom: 2px; left: 2px; color: #ff4d4d; border: 1px solid #ff4d4d; } 
+    .constraint-icon.no-rot { bottom: 2px; right: 2px; color: #ffb703; border: 1px solid #ffb703; } 
 
-        /* 아이템 갤러리 */
-        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
-        .gallery-card { background: rgba(0,0,0,0.55); border: 1px solid var(--gold-dark); border-radius: 12px; padding: 14px; cursor: pointer; transition: 0.3s; display: flex; flex-direction: column; }
-        .gallery-card:hover { border-color: var(--gold-light); transform: translateY(-5px); box-shadow: 0 0 18px rgba(140,112,59,0.5); }
-        .gallery-img { width: 100%; aspect-ratio: 1 / 1; border-radius: 8px; background: #111014; border: 1px solid rgba(255,255,255,0.08); overflow: hidden; display: flex; align-items: center; justify-content: center; color: var(--gold-dark); font-family: var(--font-serif); font-size: 13px; margin-bottom: 12px; }
-        .gallery-img img { width: 100%; height: 100%; object-fit: cover; }
-        .gallery-name { color: var(--gold-light); font-weight: bold; font-size: 17px; text-align: center; margin-bottom: 6px; }
-        .gallery-desc { color: #bbb; font-size: 13px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+    .tile { width: 20px; height: 20px; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; position: relative; box-sizing: border-box; z-index: 1; } /* 커스텀 블럭 이미지(z-index 0) 위에 타일 상태(물·수로·벽)가 보이도록 */
+    .path { background-color: #4a6fa5; }
+    .start-point .path { background-color: #3a86ff; }
+    .goal-point .path { background-color: #38b000; }
+    
+    /* 1x1 타일 상태 스타일 (벽, 물, 발판) */
+    .tile-wall { background-color: #0b132b !important; background-image: repeating-linear-gradient(45deg, #1c2541 25%, transparent 25%, transparent 75%, #1c2541 75%, #1c2541) !important; background-size: 6px 6px !important; box-shadow: inset 0 0 2px #000 !important; cursor: not-allowed; }
+    .tile-water-low { background-color: #2c3e50 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.5) !important; }
+    .tile-water-high { background-color: #3498db !important; box-shadow: inset 0 0 10px rgba(52,152,219,0.5) !important; }
+    .tile-plat-low { background-color: #0b132b !important; border: 1px dashed #778da9 !important; box-shadow: none !important;}
+    .tile-plat-high { background-color: #8b4513 !important; box-shadow: inset 0 0 5px rgba(0,0,0,0.8) !important; }
 
-        /* 모달 */
-        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 200; justify-content: center; align-items: center; padding: 15px; box-sizing: border-box; }
-        .modal-box { background: var(--panel-bg); border: 1px solid var(--gold-main); padding: 30px; border-radius: 12px; text-align: center; width: 380px; max-width: 100%; max-height: 90vh; overflow-y: auto; box-sizing: border-box; box-shadow: 0 0 30px rgba(0,0,0,0.7); }
-        .modal-box h3 { color: var(--gold-light); font-size: 22px; margin-top: 0; }
-        .modal-actions { display: flex; gap: 10px; margin-top: 25px; }
-        .heal-input { width: 100%; padding: 12px; background: rgba(0,0,0,0.5); border: 1px solid var(--text-sub); color: #fff; border-radius: 4px; box-sizing: border-box; margin-bottom: 12px; font-size: 15px; text-align: center; font-family: var(--font-main); }
-        .heal-input:focus { outline: none; border-color: var(--gold-main); background: rgba(0,0,0,0.8); }
+    /* 🌫️ 안개 */
+    .fog { position: absolute; inset: -1px; background-color: rgba(4, 8, 20, 0.6); z-index: 40; pointer-events: none; border: 1px solid #000; border-radius: 2px; }
+    .capture-PL .fog, .preview-fog .fog { opacity: 1 !important; z-index: 99 !important; background-color: #040814 !important; border: 1px solid #1c2541 !important;}
 
-        /* 작전 구상 */
-        .plan-layout { display: flex; gap: 20px; align-items: flex-start; }
-        .plan-side { flex: 0 0 230px; position: sticky; top: 0; background: rgba(15,14,18,0.8); border: 1px solid var(--gold-dark); border-radius: 10px; padding: 14px; box-sizing: border-box; }
-        .plan-side-head { display: flex; justify-content: space-between; align-items: center; color: var(--gold-light); font-family: var(--font-serif); font-size: 17px; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid rgba(140,112,59,0.3); }
-        .add-page-btn { background: transparent; border: 1px dashed var(--gold-main); color: var(--gold-light); border-radius: 15px; padding: 3px 10px; cursor: pointer; font-size: 12px; font-family: var(--font-main); }
-        .add-page-btn:hover { background: rgba(212,178,111,0.15); }
-        #plan-pages { display: flex; flex-direction: column; gap: 6px; max-height: 55vh; overflow-y: auto; }
-        .page-chip { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: rgba(255,255,255,0.03); border: 1px solid transparent; color: #ccc; border-radius: 8px; padding: 9px 10px; cursor: pointer; font-family: var(--font-main); font-size: 14px; transition: 0.2s; position: relative; }
-        .page-chip:hover { background: rgba(212,178,111,0.08); color: #fff; }
-        .page-chip.active { border-color: var(--gold-main); background: rgba(212,178,111,0.12); color: var(--gold-light); font-weight: bold; }
-        .page-no { font-size: 11px; color: var(--gold-main); flex: 0 0 auto; }
-        .page-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .page-count { font-size: 11px; color: var(--text-sub); flex: 0 0 auto; }
-        .page-new { width: 7px; height: 7px; border-radius: 50%; background: #ff3333; box-shadow: 0 0 6px #ff3333; flex: 0 0 auto; }
-        .plan-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
-        .plan-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; border-bottom: 2px solid var(--gold-dark); padding-bottom: 12px; }
-        .plan-head h3 { margin: 0; color: var(--gold-light); font-family: var(--font-serif); font-size: 26px; word-break: keep-all; }
-        .plan-meta { color: var(--text-sub); font-size: 12px; margin-top: 4px; }
-        .plan-tools { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .plan-updated { font-size: 11px; color: var(--text-sub); }
-        .composer { background: rgba(0,0,0,0.45); border: 1px solid rgba(140,112,59,0.5); border-radius: 10px; padding: 14px; display: flex; gap: 12px; }
-        .composer:focus-within { border-color: var(--gold-main); }
-        .composer-body { flex: 1; min-width: 0; }
-        .plan-textarea { width: 100%; min-height: 70px; resize: none; background: transparent; border: none; color: #fff; font-size: 15px; line-height: 1.6; font-family: var(--font-main); box-sizing: border-box; overflow: hidden; }
-        .plan-textarea:focus { outline: none; }
-        .composer-foot { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255,255,255,0.07); padding-top: 10px; margin-top: 6px; }
-        .hint { font-size: 11px; color: var(--text-sub); }
-        .avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; border: 1px solid var(--gold-dark); background: #222; display: flex; align-items: center; justify-content: center; color: var(--gold-light); font-weight: bold; font-family: var(--font-serif); }
-        .avatar.sm { width: 30px; height: 30px; font-size: 12px; }
-        .post { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
-        .post.mine { border-left: 3px solid var(--gold-main); }
-        .post-head { display: flex; align-items: center; gap: 10px; }
-        .post-who { flex: 1; min-width: 0; }
-        .post-name { color: var(--gold-light); font-weight: bold; font-size: 15px; }
-        .post-time { color: var(--text-sub); font-size: 11px; margin-left: 6px; }
-        .post-actions { display: flex; gap: 4px; }
-        .link-btn { background: transparent; border: none; color: var(--text-sub); cursor: pointer; font-size: 12px; padding: 4px 6px; border-radius: 4px; font-family: var(--font-main); }
-        .link-btn:hover { color: var(--gold-light); background: rgba(212,178,111,0.1); }
-        .link-btn.danger:hover { color: #ff7777; background: rgba(255,85,85,0.1); }
-        .post-body { color: #eee; font-size: 15px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; margin: 12px 0 8px 50px; }
-        .post-body a, .comment-body a { color: var(--gold-light); }
-        .post-body.deleted { color: #666; font-style: italic; }
-        .post-foot { margin-left: 44px; }
-        .comments { margin: 10px 0 0 50px; border-left: 2px solid rgba(140,112,59,0.3); padding-left: 14px; display: flex; flex-direction: column; gap: 12px; }
-        .comment { display: flex; gap: 10px; }
-        .comment-main { flex: 1; min-width: 0; }
-        .comment-body { color: #ddd; font-size: 14px; line-height: 1.6; white-space: pre-wrap; word-break: break-word; margin-top: 2px; }
-        .reply-box { display: flex; gap: 8px; align-items: flex-end; }
-        .reply-box textarea { flex: 1; min-height: 38px; resize: none; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; padding: 8px 10px; font-size: 14px; font-family: var(--font-main); box-sizing: border-box; overflow: hidden; line-height: 1.5; }
-        .reply-box textarea:focus { outline: none; border-color: var(--gold-main); }
-        .edit-box { margin: 12px 0 8px 50px; }
-        .edit-box textarea { width: 100%; min-height: 80px; resize: none; background: rgba(0,0,0,0.5); border: 1px solid var(--gold-main); border-radius: 6px; color: #fff; padding: 10px; font-size: 14px; line-height: 1.6; font-family: var(--font-main); box-sizing: border-box; overflow: hidden; }
-        .edit-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
-        .empty-msg { color: var(--text-sub); text-align: center; padding: 40px 0; }
+    #world-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+    #clue-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 105; } 
+    
+    .overlay-item { position: absolute; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; transition: top 0.15s ease, left 0.15s ease; pointer-events: none; }
+    
+    .gimmick-a::after { content: ''; position: absolute; inset: 0; background-color: rgba(0,0,0,0.4); pointer-events: none; z-index: 5; }
+    .gimmick-b { filter: drop-shadow(0 0 3px rgba(255,255,255,0.4)); }
+    
+    .symbol-icon { font-size: 16px; font-weight: bold; text-shadow: 0 0 5px rgba(255,255,255,0.5); pointer-events: auto; z-index: 10; position: relative; }
+    .symbol-item { color: #fdf0d5; }
+    .symbol-rock { color: #a2a8d3; }
+    .symbol-waterfall { color: #8ecae6; }
+    .symbol-warp { color: #c77dff; }
+    .symbol-enemy { color: #ff4d4d; }
+    .symbol-hole { color: #111; text-shadow: 0 0 2px #fff; }
+    .symbol-switch { color: #e74c3c; }
+    .symbol-memo { color: #e0c3fc; }
+    .symbol-trap { color: #ff9f1c; text-shadow: 0 0 4px rgba(255,159,28,0.6); }
 
-        @media (max-width: 760px) {
-            .game-container { height: 100vh; max-height: none; }
-            .view { padding: 15px; }
-            .top-bar { flex-direction: column; align-items: stretch; padding: 12px 15px; }
-            .resources { justify-content: flex-start; gap: 8px; }
-            .page-title { font-size: 18px; }
-            .plan-layout { flex-direction: column; }
-            .plan-side { position: static; flex: none; width: 100%; }
-            #plan-pages { flex-direction: row; overflow-x: auto; max-height: none; padding-bottom: 4px; }
-            .page-chip { flex: 0 0 auto; width: auto; max-width: 200px; }
-            .post-body, .edit-box { margin-left: 0; }
-            .post-foot { margin-left: 0; }
-            .comments { margin-left: 8px; }
-        }
-    </style>
+    .player-marker { display: flex; align-items: center; justify-content: center; z-index: 100; pointer-events: none; }
+    
+    legend { font-size: 11px; color: #778da9; margin-top: 15px; line-height: 1.6; padding: 10px; border-top: 1px solid #1c2541; }
+    #tooltip { position: absolute; display: none; background: #0b132b; color: #00f5d4; border: 1px solid #415a77; padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: bold; z-index: 9999; pointer-events: none; box-shadow: 0 4px 10px rgba(0,0,0,0.8); }
+
+    /* 🪟 GM 플로팅 윈도우 스타일 */
+    .gm-modal { position: absolute; display: none; background: #0b132b; border: 1px solid #415a77; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.9); z-index: 10000; width: 280px; resize: both; overflow: hidden; }
+    .gm-modal-header { background: #1c2541; padding: 10px; font-size: 14px; font-weight: bold; color: #00f5d4; cursor: move; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #415a77; }
+    .gm-modal-close { cursor: pointer; color: #ff4d4d; font-size: 16px; line-height: 1; padding: 0 5px; }
+    .gm-modal-close:hover { color: #ff9f1c; }
+    .gm-modal-body { padding: 15px; }
+    #gm-memo-area { width: 100%; height: 200px; background: #040814; color: #e0e1dd; border: 1px solid #415a77; border-radius: 4px; padding: 8px; box-sizing: border-box; resize: vertical; }
+    .timer-display { font-size: 40px; font-weight: bold; text-align: center; color: #00f5d4; text-shadow: 0 0 10px rgba(0,245,212,0.5); letter-spacing: 2px; margin: 15px 0; }
+    .timer-display.alert { color: #ff4d4d; text-shadow: 0 0 15px rgba(255,77,77,0.8); animation: blink 1s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    .timer-inputs { display: flex; justify-content: center; gap: 5px; margin-bottom: 10px; }
+    .timer-input { width: 50px; background: #040814; color: #fff; border: 1px solid #415a77; text-align: center; border-radius: 4px; padding: 5px; }
+    .timer-btn-group { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; }
+    .dice-result { font-size: 32px; font-weight: bold; text-align: center; margin: 20px 0; color: #f1c40f; text-shadow: 0 0 10px rgba(241,196,15,0.6); }
+    .dice-log { font-size: 12px; color: #778da9; max-height: 80px; overflow-y: auto; border-top: 1px solid #1c2541; padding-top: 10px; margin-top: 10px; }
+</style>
 </head>
 <body>
 
-<div class="game-container">
-    <div id="loading-overlay">데이터 동기화 중...</div>
+<div id="tooltip"></div>
 
-    <div class="top-bar" id="top-bar">
-        <div class="top-bar-left">
-            <button class="back-btn" id="btn-back">◀ 로비로</button>
-            <div class="page-title" id="page-title">✦ CHARACTER LIST ✦</div>
+<!-- GM 모달들 -->
+<div id="modal-notepad" class="gm-modal" style="left: 350px; top: 50px;">
+    <div class="gm-modal-header">📝 시크릿 메모장 <span class="gm-modal-close" onclick="closeModal('modal-notepad')">✖</span></div>
+    <div class="gm-modal-body"><textarea id="gm-memo-area" placeholder="마스터 전용 메모장입니다."></textarea></div>
+</div>
+<div id="modal-timer" class="gm-modal" style="left: 650px; top: 50px; width: 260px;">
+    <div class="gm-modal-header">⏱️ 라운드 & 타이머 <span class="gm-modal-close" onclick="closeModal('modal-timer')">✖</span></div>
+    <div class="gm-modal-body">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:#040814; padding:10px; border-radius:4px; border:1px solid #415a77;">
+            <button class="btn" style="width:30px; padding:5px; margin:0;" onclick="changeRound(-1)">-</button>
+            <div style="font-size:18px; font-weight:bold; color:#fff;">라운드: <span id="round-counter">1</span></div>
+            <button class="btn" style="width:30px; padding:5px; margin:0;" onclick="changeRound(1)">+</button>
         </div>
-        <div class="resources">
-            <div class="resource-item">👤 <span id="ui-name">이름</span></div>
-            <div class="resource-item">
-                <span style="color:var(--gold-main); font-weight:bold;">존재감</span>&nbsp;<span id="ui-hp">0</span>&nbsp;/&nbsp;<span id="ui-maxhp">0</span>
-                <span id="ui-zero" class="zero-count" title="존재감이 0이 된 횟수"></span>
-                <span id="ui-status" class="status-badge" style="display:none;"></span>
+        <div id="timer-display" class="timer-display">00:00</div>
+        <div class="timer-inputs">
+            <input type="number" id="t-min" class="timer-input" placeholder="분" min="0" max="99">
+            <span style="color:#778da9; align-self:center;">:</span>
+            <input type="number" id="t-sec" class="timer-input" placeholder="초" min="0" max="59">
+        </div>
+        <div class="timer-btn-group">
+            <button class="btn" onclick="startTimer()" style="margin:0; background:#27ae60; border-color:#2ecc71;">시작</button>
+            <button class="btn" onclick="pauseTimer()" style="margin:0; background:#d35400; border-color:#e67e22;">일시정지</button>
+            <button class="btn" onclick="resetTimer()" style="margin:0; background:#c0392b; border-color:#e74c3c;">초기화</button>
+        </div>
+    </div>
+</div>
+<div id="modal-dice" class="gm-modal" style="left: 930px; top: 50px; width: 220px;">
+    <div class="gm-modal-header">🎲 다이스타워 <span class="gm-modal-close" onclick="closeModal('modal-dice')">✖</span></div>
+    <div class="gm-modal-body">
+        <div style="display:flex; gap:5px; margin-bottom:10px;">
+            <button class="btn" style="margin:0;" onclick="rollDice(20)">1d20</button>
+            <button class="btn" style="margin:0;" onclick="rollDice(100)">1d100</button>
+            <button class="btn" style="margin:0;" onclick="rollDice(6)">1d6</button>
+        </div>
+        <div id="dice-result" class="dice-result">-</div>
+        <div id="dice-log" class="dice-log"></div>
+    </div>
+</div>
+
+<!-- 🎛️ 좌측 패널 -->
+<div id="sidebar">
+    <h1>깨어진 세계</h1>
+
+    <div class="system-grid">
+        <button class="btn" onclick="document.getElementById('file-input').click()">📂 맵 열기</button>
+        <input type="file" id="file-input" style="display: none;" accept=".json" onchange="loadMap(event)">
+        <button class="btn" onclick="saveMap()">💾 맵 저장</button>
+        <button class="btn" onclick="copyMapImage('GM')">📸 GM 캡처</button>
+        <button class="btn" onclick="copyMapImage('PL')">📸 PL 캡처</button>
+        
+        <button id="btn-block-asset" class="btn" style="grid-column: span 2; background:#8e44ad; border-color:#9b59b6; font-weight:bold; box-shadow: 0 0 10px rgba(142,68,173,0.5);" onclick="document.getElementById('block-asset-input').click()">🧱 길블럭 에셋 ZIP 적용</button>
+        <input type="file" id="block-asset-input" style="display: none;" accept=".zip, image/*" multiple onchange="loadBlockAssets(event)">
+        
+        <button id="btn-player-asset" class="btn" style="grid-column: span 2; background:#d35400; border-color:#e67e22; font-weight:bold; box-shadow: 0 0 10px rgba(211,84,0,0.5);" onclick="document.getElementById('player-asset-input').click()">🧍 플레이어 에셋 ZIP 적용</button>
+        <input type="file" id="player-asset-input" style="display: none;" accept=".zip, image/*" multiple onchange="loadPlayerAssets(event)">
+    </div>
+
+    <div style="display: flex; align-items: center; margin-bottom: 15px;">
+        <div style="flex: 2; display: flex; gap: 5px;">
+            <button class="btn" style="margin: 0; padding: 10px 0;" onclick="changeFloor(1)">▲ 위층</button>
+            <button class="btn" style="margin: 0; padding: 10px 0;" onclick="changeFloor(-1)">▼ 아래층</button>
+        </div>
+        <div id="floor-info" style="flex: 1; font-size: 24px; color: #00f5d4; font-weight: bold; text-align: right; text-shadow: 0 0 10px rgba(0,245,212,0.5);">1F</div>
+    </div>
+
+    <div class="toggle-container">
+        <button id="mode-edit" class="toggle-btn active" onclick="setMode('edit')">설계(GM)</button>
+        <button id="mode-play" class="toggle-btn" onclick="setMode('play')">탐험(PL)</button>
+    </div>
+
+    <!-- 🛠️ GM 설계 모드 -->
+    <div id="edit-tools">
+        <h3>블럭 속성 (3x3 전체)</h3>
+        <div class="toggle-container" style="margin-bottom: 8px;">
+            <button id="brush-move-btn" class="toggle-btn prop-on" onclick="toggleBrushConstraint('move')">이동 가능</button>
+            <button id="brush-rot-btn" class="toggle-btn prop-on" onclick="toggleBrushConstraint('rotate')">회전 가능</button>
+        </div>
+
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; background:#080c16; padding:8px; border: 1px solid #1c2541; border-radius:4px;">
+            <div style="display:flex; flex-direction:column; align-items:flex-start;">
+                <span style="font-size:11px; color:#778da9; margin-bottom:6px;">회전 방향: <b id="brush-rot-text" style="color:#00f5d4;">0도</b></span>
+                <button class="btn" style="width:auto; margin:0; padding:5px 10px; font-size:11px;" onclick="rotateBrush()">90도 회전</button>
             </div>
-            <div class="resource-item inv-btn" onclick="openInventoryView()">소지품 <span id="ui-inv-alert" class="alert-badge" style="display:none;">!</span></div>
+            <div id="mini-preview" class="block" style="width: 56px; height: 56px; display:grid; grid-template-columns: repeat(3, 18px); grid-template-rows: repeat(3, 18px); pointer-events: none;"></div>
+        </div>
+
+        <div class="tool-grid">
+            <button id="btn-cross" class="btn tool-btn active-tool" onclick="selectEditTool(this, 'shape', 'cross')">십자 (+)</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'straight')">일자 (|)</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'corner')">꺾은선 (ㄱ)</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'tshape')">외길 (ㅓ)</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'dot')">징검다리</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'empty')">블럭 삭제</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'full')" title="9칸 전부 길. 어떤 블럭과도 이어진다">꽉 찬 (■)</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'edge')" title="1·4·7·8·9번 칸이 길. 일반 블럭과는 가운데 출구로, 같은 블럭·꽉 찬 블럭과는 모서리로도 이어진다">모서리 (ㄴ)</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'start')" style="color:#7fb3d5;">시작블럭</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'goal')" style="color:#82e0aa;">목표블럭</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'wall')" style="color:#777;">장애물벽</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'shape', 'surf')" style="color:#c39bff; grid-column: span 3;">🌊 수로 블럭 (물 찼을 때 파도타기)</button>
+        </div>
+
+        <h3>타일 세부 설정 (1x1 격자)</h3>
+        <div class="tool-grid">
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'tile', 1)">🧱 타일 벽</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'tile', 4)" style="color:#c39bff;">🌊 수로</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'tile', 0)" style="color:#7fb3d5;">초기화</button>
+        </div>
+
+        <h3>기믹 및 시스템 설정</h3>
+        <div class="toggle-container" style="margin-top:8px;">
+            <button id="bind-a" class="toggle-btn gimmick-type-active" onclick="setGimmickBinding('A')">블럭 고정</button>
+            <button id="bind-b" class="toggle-btn" onclick="setGimmickBinding('B')">공간 고정</button>
+        </div>
+        <input type="text" id="gimmick-memo" class="input-field" placeholder="마우스 오버 메모">
+        
+        <div class="tool-grid">
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'item')">◆ 아이템</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'enemy')">☠ 몬스터</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'rock')">■ 바위</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'waterfall')">⇈ 폭포</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'warphole')">◎ 워프홀</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'memo')" style="color:#e0c3fc;">✎ 메모</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'trap')" style="color:#ff9f1c;">⚠ 함정</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'gimmick', 'delete')" style="grid-column: span 2;">기믹삭제</button>
+        </div>
+        <div id="warp-color-row" style="display:none; margin-top:6px; padding:6px; border:1px solid #415a77; border-radius:6px;">
+            <div style="font-size:11px; color:#a9b4c2; margin-bottom:5px;">◎ 워프홀 색 (같은 색끼리 짝으로 쓰면 구별이 쉬워요)</div>
+            <div id="warp-swatches" style="display:flex; flex-wrap:wrap; gap:5px; align-items:center;"></div>
+            <div style="font-size:10px; color:#7f8c9b; margin-top:5px;">이미 놓인 워프홀을 이 도구로 다시 누르면 메모는 그대로 두고 색만 바뀝니다.</div>
+        </div>
+
+        <!-- 버튼을 아래로 재배치 -->
+        <button id="btn-water-level" class="btn" style="background:#2980b9; border-color:#3498db; color:#fff; font-weight:bold; width:100%; margin-top:15px; margin-bottom:8px; font-size:13px;" onclick="toggleWaterLevel()">🌊 수위 연동: 낮음 (GM전용)</button>
+        <div style="display:grid; grid-template-columns: 2fr 1fr; gap:6px; margin-bottom:8px;">
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'system', 'spawn')" style="color:#00f5d4; font-weight:bold; margin:0; border: 1px solid #415a77;">👣 플레이어 위치 지정</button>
+            <button class="btn tool-btn" onclick="selectEditTool(this, 'system', 'float')" style="color:#5ed6cd; margin:0;" title="깔려 있는 길 블럭을 눌러 부유 블럭으로 지정/해제 (처음엔 가라앉음)">⇅ 부유 지정</button>
+        </div>
+    </div>
+    
+    <!-- 🎮 PL 탐험 모드 -->
+    <div id="play-tools" style="display: none;">
+        <div style="display: flex; gap: 5px; margin-bottom: 6px;">
+            <button id="btn-lantern" class="btn tool-btn" onclick="toggleLanternMode()" style="flex: 1; color:#f39c12; margin-bottom:0; font-weight:bold; text-align:center; padding-left:0;">🏮 등불: OFF</button>
+            <button id="btn-gimmick-blind" class="btn tool-btn" onclick="toggleGimmickBlindMode()" style="flex: 1; color:#c77dff; margin-bottom:0; font-weight:bold; text-align:center; padding-left:0;">❓ 블라인드: OFF</button>
+        </div>
+        <button id="btn-fog-preview" class="btn tool-btn" onclick="toggleGMFog()" style="width: 100%; color:#f1c40f; margin-bottom:12px; font-weight:bold; text-align:center;">👁️ PL 시야 (미리보기): OFF</button>
+
+        <h3>단서 마커 (안개 위 힌트)</h3>
+        <div class="toggle-container" style="margin-bottom:8px;">
+            <button id="clue-size-tile" class="toggle-btn gimmick-type-active" onclick="setClueSize('tile')">타일(작게)</button>
+            <button id="clue-size-block" class="toggle-btn" onclick="setClueSize('block')">블럭(크게)</button>
+        </div>
+        <div class="tool-grid">
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'clueWarning')">⚠️ 경고</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'clueQuestion')">❓ 의문</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'clueLandmark')" style="color:#ffd166;" title="팔·손처럼 멀리서도 보이는 중요한 것. 안개 속에서도 보인다">✦ 중요</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'clueClear')">지우기</button>
+        </div>
+
+        <h3>조작 및 마스터 툴</h3>
+        <div class="tool-grid-2">
+            <button class="btn tool-btn active-tool" onclick="selectPlayTool(this, 'rotate')">회전(클릭)</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'movePlayer')">플 강제이동</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'walk')" style="color:#f1c40f;" title="누른 뒤 방향키(또는 WASD)로 플레이어를 움직입니다. 길이 이어진 곳으로만 이동합니다.">🚶 플레이어 이동</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'identifyGimmick')" style="color:#3498db; font-weight:bold;">🔍 정체식별</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'solveGimmick')" style="color:#e74c3c;">✔ 해결 기믹 해제</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'floatToggle')" style="color:#5ed6cd;" title="부유 블럭을 띄우거나 가라앉힘">⇅ 부유 전환</button>
+        </div>
+        
+        <h3>표식(마커) 지정</h3>
+        <select id="marker-color-select" class="input-field" style="margin-bottom: 5px;">
+            <option value="#ef233c">빨간색 (위험)</option>
+            <option value="#4cc9f0">파란색 (안전/정보)</option>
+            <option value="#00f5d4">초록색 (진행)</option>
+            <option value="#fee440">노란색 (주의)</option>
+            <option value="#ff9f1c">주황색 (기타)</option>
+        </select>
+        <div class="tool-grid-2">
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'markerA')">🚩 블럭종속</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'markerB')">🏁 공간고정</button>
+            <button class="btn tool-btn" onclick="selectPlayTool(this, 'markerClear')" style="grid-column: span 2;">표식 뽑기</button>
         </div>
     </div>
 
-    <!-- 공용 확인 모달 -->
-    <div id="modal-confirm" class="modal-overlay">
-        <div class="modal-box">
-            <h3 id="mc-title">확인</h3>
-            <div id="mc-desc" style="color:#4caf50; font-size:14px; margin-bottom:10px; white-space:pre-wrap;"></div>
-            <p id="mc-msg" style="color:#fff; font-size:17px; margin-bottom:5px;"></p>
-            <p id="mc-sub" style="color:var(--text-sub); font-size:12px;"></p>
-            <div class="modal-actions">
-                <button class="btn-primary" id="mc-ok">확인</button>
-                <button class="btn-primary btn-cancel" onclick="closeModal('modal-confirm')">취소</button>
-            </div>
+    <!-- 🛠️ GM 도구상자 -->
+    <div style="margin-top: 15px; border-top: 1px solid #1c2541; padding-top: 12px;">
+        <button class="btn" style="background:#2980b9; border-color:#3498db; color:#fff; font-weight:bold; width: 100%;" onclick="toggleGMMenu()">🛠️ GM 도구상자 열기/닫기</button>
+        <div id="gm-tools-menu" style="display:none; margin-top: 8px; background:#080c16; padding:10px; border-radius:4px; border:1px solid #1c2541;">
+            <button class="btn tool-btn" style="margin-bottom:5px; width: 100%;" onclick="openModal('modal-notepad')">📝 시크릿 메모장 띄우기</button>
+            <button class="btn tool-btn" style="margin-bottom:5px; width: 100%;" onclick="openModal('modal-timer')">⏱️ 라운드 & 타이머 띄우기</button>
+            <button class="btn tool-btn" style="margin-bottom:0; width: 100%;" onclick="openModal('modal-dice')">🎲 다이스타워 띄우기</button>
         </div>
     </div>
+</div>
 
-    <!-- 공용 입력 모달 (쪽 추가/이름 변경) -->
-    <div id="modal-prompt" class="modal-overlay">
-        <div class="modal-box">
-            <h3 id="mp-title">입력</h3>
-            <p id="mp-msg" style="color:var(--text-sub); font-size:13px;"></p>
-            <input type="text" id="mp-input" class="heal-input" maxlength="30">
-            <div class="modal-actions">
-                <button class="btn-primary" id="mp-ok">확인</button>
-                <button class="btn-primary btn-cancel" onclick="closeModal('modal-prompt')">취소</button>
-            </div>
+<!-- 🎯 중앙 보드 (9x9) - 사이즈 렌더링 영역 축소 적용 -->
+<div class="coord-container" id="capture-target">
+    <div class="col-labels">
+        <div class="col-label">1</div><div class="col-label">2</div><div class="col-label">3</div>
+        <div class="col-label">4</div><div class="col-label">5</div><div class="col-label">6</div>
+        <div class="col-label">7</div><div class="col-label">8</div><div class="col-label">9</div>
+    </div>
+    
+    <div class="board-body">
+        <div class="row-labels">
+            <div class="row-label">A</div><div class="row-label">B</div><div class="row-label">C</div>
+            <div class="row-label">D</div><div class="row-label">E</div><div class="row-label">F</div>
+            <div class="row-label">G</div><div class="row-label">H</div><div class="row-label">I</div>
+        </div>
+        
+        <div id="game-container" tabindex="0">
+            <div id="game-board"></div>
+            <div id="world-overlay"></div>
+            <div id="clue-overlay"></div>
         </div>
     </div>
+</div>
 
-    <!-- 소지품 양도 모달 -->
-    <div id="modal-transfer" class="modal-overlay">
-        <div class="modal-box">
-            <h3 id="mt-item">아이템 이름</h3>
-            <p style="color:#fff; font-size:15px; margin-bottom:15px;">누구에게 양도하시겠습니까?</p>
-            <input type="text" id="mt-target" class="heal-input" placeholder="받는 사람 이름" list="guest-names" autocomplete="off">
-            <datalist id="guest-names"></datalist>
-            <p style="color:var(--text-sub); font-size:12px; margin:0;">※ 양도하면 내 소지품에서 사라집니다.</p>
-            <div class="modal-actions">
-                <button class="btn-primary" id="mt-ok">양도하기</button>
-                <button class="btn-primary btn-cancel" onclick="closeModal('modal-transfer')">취소</button>
-            </div>
+<!-- 🎛️ 우측 패널 (퀘스트 및 단서 보드) -->
+<div id="right-panel">
+    <!-- 메인 퀘스트 (체크리스트) -->
+    <div class="board-section">
+        <div class="board-title">📜 이번 층의 목표</div>
+        <div id="quest-list-container"></div>
+        <div id="quest-add-box" class="add-quest-box">
+            <input type="text" id="new-quest-input" class="quest-input-field" placeholder="새로운 목표를 입력하세요..." onkeydown="if(event.key === 'Enter') addQuest()">
+            <button class="btn" style="width:35px; margin:0;" onclick="addQuest()">+</button>
         </div>
     </div>
-
-    <!-- 아이템 상세 모달 -->
-    <div id="modal-item" class="modal-overlay">
-        <div class="modal-box" style="width:440px;">
-            <div id="mi-img" style="margin-bottom:15px;"></div>
-            <h3 id="mi-name"></h3>
-            <div id="mi-desc" style="background:rgba(0,0,0,0.5); padding:18px; border:1px solid var(--gold-dark); border-radius:6px; text-align:left; color:#fff; font-size:14px; line-height:1.7; white-space:pre-wrap; max-height:220px; overflow-y:auto;"></div>
-            <button class="btn-primary" style="margin-top:20px;" onclick="closeModal('modal-item')">닫기</button>
-        </div>
+    
+    <!-- 오토 트래킹 단서 수첩 -->
+    <div class="board-section" style="flex: 1;">
+        <div class="board-title">🔍 단서 수첩 (자동 스크랩)</div>
+        <ul id="clue-tracker-list" class="clue-list">
+        </ul>
     </div>
 
-    <!-- 로그인 -->
-    <div id="view-login" class="view active" style="justify-content: center;">
-        <div class="login-box">
-            <h2 style="color: var(--gold-light); font-family: var(--font-serif); margin-bottom: 30px;">ACCESS CODE</h2>
-            <input type="password" id="login-pw" placeholder="비밀번호 입력">
-            <button class="btn-primary" onclick="attemptLogin()" style="margin-top: 15px;">접속하기</button>
-        </div>
+    <!-- 진행 힌트 -->
+    <div class="board-section">
+        <div class="board-title" style="color: #f1c40f;">💡 진행 힌트</div>
+        <textarea id="hint-input" class="quest-input" style="height: 50px;" placeholder="GM 텍스트 란: 플레이어가 막혔을 때 참고할 힌트를 적어주세요." onchange="savePanelData()"></textarea>
+        <div id="hint-display" class="quest-display" style="display:none; color: #f1c40f; min-height: 50px;"></div>
     </div>
-
-    <!-- 로비 -->
-    <div id="view-lobby" class="view">
-        <div class="char-list" id="screen-list"></div>
-    </div>
-
-    <!-- 공지 -->
-    <div id="view-info" class="view">
-        <div class="section-head">
-            <h3>📢 시스템 공지사항</h3>
-            <p>커뮤니티의 주요 안내 및 업데이트 사항을 확인하세요.</p>
-        </div>
-        <div id="notice-list" style="display:flex; flex-direction:column; gap:15px;"></div>
-    </div>
-
-    <!-- 아이템 -->
-    <div id="view-items" class="view">
-        <div class="section-head" style="display:flex; justify-content:space-between; align-items:flex-end; flex-wrap:wrap; gap:10px;">
-            <div>
-                <h3>아이템</h3>
-                <p>지금까지 확보한 아이템입니다. 카드를 누르면 자세히 볼 수 있습니다.</p>
-            </div>
-            <span id="items-count" style="color:var(--gold-main); font-size:14px;"></span>
-        </div>
-        <div class="gallery-grid" id="items-list"></div>
-    </div>
-
-    <!-- 작전 구상 -->
-    <div id="view-plan" class="view">
-        <div class="plan-layout">
-            <aside class="plan-side">
-                <div class="plan-side-head">
-                    <span>쪽 목록</span>
-                    <button class="add-page-btn" onclick="openAddPage()">＋ 새 쪽</button>
-                </div>
-                <div id="plan-pages"></div>
-            </aside>
-            <section class="plan-main">
-                <div class="plan-head">
-                    <div>
-                        <h3 id="plan-page-title">작전 구상</h3>
-                        <div class="plan-meta" id="plan-page-meta"></div>
-                    </div>
-                    <div class="plan-tools">
-                        <span class="plan-updated" id="plan-updated"></span>
-                        <button class="btn-outline btn-small" id="plan-order-btn" onclick="toggleOrder()">최신순</button>
-                        <button class="btn-outline btn-small" onclick="loadPlan(false)">↻ 새로고침</button>
-                        <span id="plan-owner-tools"></span>
-                    </div>
-                </div>
-                <div class="composer">
-                    <div id="composer-avatar"></div>
-                    <div class="composer-body">
-                        <textarea id="plan-input" class="plan-textarea" maxlength="3000" placeholder="작전을 제안하거나 의견을 남겨 보세요." oninput="autoGrow(this); updateCount()" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();submitPost();}"></textarea>
-                        <div class="composer-foot">
-                            <span class="hint"><span id="plan-count">0</span> / 3000 · Ctrl+Enter로 등록</span>
-                            <button class="btn-primary btn-small" style="padding:8px 22px; border-radius:6px;" onclick="submitPost()">등록</button>
-                        </div>
-                    </div>
-                </div>
-                <div id="plan-posts" style="display:flex; flex-direction:column; gap:14px;"></div>
-            </section>
-        </div>
-    </div>
-
-    <!-- 소지품 -->
-    <div id="view-inventory" class="view">
-        <div style="margin-bottom:5px; padding-bottom:15px; border-bottom:1px solid rgba(255,255,255,0.1);">
-            <h3 style="color:var(--gold-light); font-size:26px; margin:0 0 5px 0; font-family:var(--font-serif);">내 소지품 목록</h3>
-            <p style="color:var(--text-sub); margin:0;">소지한 물건을 사용하거나 다른 사람에게 양도할 수 있습니다.</p>
-        </div>
-        <div class="item-grid" id="inventory-list"></div>
-    </div>
-
-    <button id="btn-floating-guest" onclick="nav('guest-list', '명단')">명단</button>
-
-    <!-- 명단 -->
-    <div id="view-guest-list" class="view">
-        <h3 style="color:var(--gold-light); font-size:26px; margin-top:0; font-family:var(--font-serif); border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:15px;">명단</h3>
-        <div id="guest-list-container" class="guest-grid"></div>
-    </div>
-
 </div>
 
 <script>
-    /* ================= 설정 ================= */
-    const API_URL = "https://script.google.com/macros/s/AKfycbzauP20JBYekAuxpxM_dO1B3nR2QjuX86A_W6RlqprMRcyqo5tyc0EU6Z9mI0OJoVmwmw/exec";
-    const PLAN_REFRESH_MS = 30000; // 작전 구상 자동 새로고침 간격
-    const SYNC_INTERVAL_MS = 120000; // 내 정보 자동 동기화 간격
+    const GRID_SIZE = 9;
+    const MAX_FLOORS = 3;
+    const floorNames = ["B1", "1F", "2F"];
+    
+    let currentFloor = 1; 
+    let currentMode = 'edit';
+    let currentEditCategory = 'shape'; 
+    let currentEditTool = 'cross';
+    let gimmickBinding = 'A'; 
+    let brushRotation = 0; 
+    let brushMovable = true;
+    let brushRotatable = true;
+    let playTool = 'rotate'; 
+    
+    let gmFogPreview = false; 
+    let isCapturingPL = false; 
+    let clueSizeMode = 'tile';
 
-    // '화면' 시트 D열(연결화면) 또는 A열(이름) → 화면 ID
-    const VIEW_ALIAS = {
-        'info': 'info', '공지': 'info', '공지사항': 'info',
-        'items': 'items', 'item': 'items', '아이템': 'items',
-        'plan': 'plan', '작전 구상': 'plan', '작전구상': 'plan',
-        'guest-list': 'guest-list', '명단': 'guest-list',
-        'inventory': 'inventory', '소지품': 'inventory'
+    let lanternMode = false;
+    let gimmickBlindMode = false;
+    let globalWaterLevel = false; 
+
+    let playerSpawns = Array(MAX_FLOORS).fill(null);
+    let playerPositions = Array(MAX_FLOORS).fill(null);
+    let playerPos = null; 
+
+    let floorQuests = Array(MAX_FLOORS).fill(null).map(() => []); 
+    let floorHints = Array(MAX_FLOORS).fill("");
+
+    let selectedBlockForMove = null; 
+    let highlightedBlocks = [];
+
+    let customAssets = {
+        player: { '위': null, '아래': null, '왼쪽': null, '오른쪽': null },
+        blocks: { cross: null, straight: null, corner: null, tshape: null, dot: null, full: null, edge: null, start: null, goal: null, wall: null, empty: null }
     };
 
-    /* ================= 상태 ================= */
-    let pw = null, me = null, sys = null, plan = null;
-    let currentView = 'login', lastSync = 0, invGroups = [], guestCache = [];
-    const planState = { pageId: null, order: 'new', editing: null, replyOpen: new Set(), expanded: new Set(), lastLoad: null };
+    let playerFacing = '아래'; 
+    const pressedKeys = {};
 
-    const $ = id => document.getElementById(id);
+    const blockTypes = {
+        empty:    { tiles: [0,0,0, 0,0,0, 0,0,0] },
+        wall:     { tiles: [0,0,0, 0,0,0, 0,0,0] },
+        cross:    { tiles: [0,1,0, 1,1,1, 0,1,0] },
+        straight: { tiles: [0,1,0, 0,1,0, 0,1,0] },
+        corner:   { tiles: [0,0,0, 0,1,1, 0,1,0] },
+        tshape:   { tiles: [0,1,0, 1,1,0, 0,1,0] },
+        dot:      { tiles: [0,0,0, 0,1,0, 0,0,0] },
+        full:     { tiles: [1,1,1, 1,1,1, 1,1,1] },   // 꽉 찬 블럭
+        edge:     { tiles: [1,0,0, 1,0,0, 1,1,1] },   // 모서리 블럭 (1·4·7·8·9)
+        start:    { tiles: [0,1,0, 1,1,1, 0,1,0] },
+        goal:     { tiles: [0,1,0, 1,1,1, 0,1,0] },
+        surf:     { tiles: [1,1,1, 1,1,1, 1,1,1] }
+    };
+    
+    const gimmickVisuals = { 
+        item: { icon: '◆', class: 'symbol-item' }, 
+        rock: { icon: '■', class: 'symbol-rock' }, 
+        waterfall: { icon: '⇈', class: 'symbol-waterfall' },
+        warphole: { icon: '◎', class: 'symbol-warp' },
+        enemy: { icon: '☠', class: 'symbol-enemy' },
+        hole: { icon: '🕳️', class: 'symbol-hole' },
+        switch: { icon: '🕹️', class: 'symbol-switch' },  // (버튼은 없앴지만 예전 맵 호환용으로 남겨 둠)
+        memo: { icon: '✎', class: 'symbol-memo' },
+        trap: { icon: '⚠', class: 'symbol-trap' }   // 함정: PL에게는 숨김. 발동 뒤 👁 확인 처리하면 PL에게도 보인다
+    };
+    // PL 시야(PL 캡처·안개 미리보기)에서 확인 처리 없이도 바로 보이는 기믹. 안개 속(밝혀지지 않은 블럭)은 그대로 가려진다.
+    // 이 툴이 모르는 기믹 종류가 들어 있어도 화면이 멈추지 않게 한다
+    function visOf(t) { return gimmickVisuals[t] || { icon: '?', class: '' }; }
+    const PL_ALWAYS_VISIBLE = new Set(['item', 'enemy', 'rock', 'waterfall', 'warphole']);
+    // 워프홀 색: 기본은 보라. 다른 색을 고르면 기믹 객체에 color로 저장된다.
+    const WARP_COLORS = ['#c77dff', '#4cc9f0', '#2ec4b6', '#80ed99', '#ffd166', '#f8961e', '#ef476f', '#ff8fd8', '#f1f1f1'];
+    let currentWarpColor = WARP_COLORS[0];
+    function gColor(g) { return (g && g.type === 'warphole' && g.color) ? ` color:${g.color}; text-shadow:0 0 6px ${g.color}, 0 0 2px #000;` : ''; }
+    function renderWarpSwatches() {
+        const box = document.getElementById('warp-swatches'); if (!box) return;
+        const isCustom = !WARP_COLORS.includes(currentWarpColor);
+        box.innerHTML = WARP_COLORS.map(c => `<button title="${c}" onclick="setWarpColor('${c}')" style="width:20px; height:20px; border-radius:50%; cursor:pointer; background:${c}; border:${c === currentWarpColor ? '2px solid #fff' : '1px solid #0b132b'}; box-shadow:${c === currentWarpColor ? '0 0 6px ' + c : 'none'}; padding:0;"></button>`).join('')
+            + `<label title="직접 고르기" style="display:inline-flex; align-items:center; gap:3px; font-size:11px; color:#a9b4c2; cursor:pointer;"><input type="color" value="${currentWarpColor}" onchange="setWarpColor(this.value)" style="width:24px; height:22px; padding:0; border:${isCustom ? '2px solid #fff' : '1px solid #415a77'}; background:none; cursor:pointer;">직접</label>`;
+    }
+    function setWarpColor(c) { currentWarpColor = c; renderWarpSwatches(); }
 
-    /* ================= 유틸 ================= */
-    function esc(s) {
-        return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-    }
-    function linkify(escaped) {
-        return escaped.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>');
-    }
-    function imgUrl(u) {
-        u = (u || '').toString().trim();
-        if (!u) return '';
-        const m = u.match(/drive\.google\.com\/(?:file\/d\/|open\?id=|uc\?(?:export=\w+&)?id=)([\w-]+)/);
-        if (m) return `https://lh3.googleusercontent.com/d/${m[1]}`;
-        return u;
-    }
-    function getJosa(word, type) {
-        if (!word) return '';
-        const c = word.charCodeAt(word.length - 1);
-        if (c < 0xac00 || c > 0xd7a3) return type.split('/')[0];
-        const jong = (c - 0xac00) % 28 > 0;
-        const [a, b] = type.split('/');
-        return jong ? a : b;
-    }
-    function statusColor(s) {
-        if (s === '독' || s === '맹독') return '#9141CB';
-        if (s === '화상') return '#E62829';
-        if (s === '마비') return '#FAC000';
-        if (s === '잠듦') return '#ADD2F5';
-        if (s === '얼음') return '#3DCEF3';
-        return '#666';
-    }
-    function showDash(v) { return (v === '' || v == null) ? '-' : v; }
-    function parseKst(s) {
-        const m = String(s || '').match(/(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})/);
-        if (!m) return null;
-        return new Date(`${m[1]}-${m[2]}-${m[3]}T${m[4]}:${m[5]}:00+09:00`);
-    }
-    function relTime(s) {
-        const d = parseKst(s);
-        if (!d) return esc(s);
-        const diff = (Date.now() - d.getTime()) / 1000;
-        if (diff < 60) return '방금';
-        if (diff < 3600) return `${Math.floor(diff / 60)}분 전`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}시간 전`;
-        return esc(s);
-    }
-    function autoGrow(el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; }
-    function lsGet(k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }
-    function lsSet(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
-    function showLoading(show) { $('loading-overlay').style.display = show ? 'flex' : 'none'; }
-    function openModal(id) { $(id).style.display = 'flex'; }
-    function closeModal(id) { $(id).style.display = 'none'; }
+    let mapData, worldGimmickData, worldMarkerData, worldClueData; 
 
-    document.querySelectorAll('.modal-overlay').forEach(o => o.addEventListener('click', e => { if (e.target === o) o.style.display = 'none'; }));
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') document.querySelectorAll('.modal-overlay').forEach(o => o.style.display = 'none'); });
-
-    function confirmBox({ title, msg, sub = '', desc = '', okText = '확인' }, onOk) {
-        $('mc-title').innerText = title;
-        $('mc-msg').innerText = msg;
-        $('mc-sub').innerText = sub;
-        $('mc-desc').innerText = desc;
-        $('mc-desc').style.display = desc ? 'block' : 'none';
-        $('mc-ok').innerText = okText;
-        $('mc-ok').onclick = () => { closeModal('modal-confirm'); onOk(); };
-        openModal('modal-confirm');
+    function createEmptyMap() {
+        mapData = Array.from({length: MAX_FLOORS}, () => 
+            Array.from({length: GRID_SIZE}, () => 
+                Array.from({length: GRID_SIZE}, () => ({
+                    type: 'empty', rotation: 0, revealed: false, isMovable: true, isRotatable: true,
+                    gimmicks: Array(9).fill(null), markers: Array(9).fill(null), blockClue: null,
+                    tileStates: Array(9).fill(0) 
+                }))
+            )
+        );
+        worldGimmickData = Array.from({length: MAX_FLOORS}, () => Array.from({length: 27}, () => Array(27).fill(null)));
+        worldMarkerData = Array.from({length: MAX_FLOORS}, () => Array.from({length: 27}, () => Array(27).fill(null)));
+        worldClueData = Array.from({length: MAX_FLOORS}, () => Array.from({length: 27}, () => Array(27).fill(null)));
+        
+        playerSpawns = Array(MAX_FLOORS).fill(null);
+        playerPositions = Array(MAX_FLOORS).fill(null);
+        
+        floorQuests = Array(MAX_FLOORS).fill(null).map(() => []); 
+        floorHints = Array(MAX_FLOORS).fill("");
+        globalWaterLevel = false;
     }
-    function promptBox({ title, msg, value = '', placeholder = '' }, onOk) {
-        $('mp-title').innerText = title;
-        $('mp-msg').innerText = msg;
-        const input = $('mp-input');
-        input.value = value; input.placeholder = placeholder;
-        const go = () => { const v = input.value.trim(); if (!v) return input.focus(); closeModal('modal-prompt'); onOk(v); };
-        $('mp-ok').onclick = go;
-        input.onkeydown = e => { if (e.key === 'Enter') go(); };
-        openModal('modal-prompt');
-        setTimeout(() => input.focus(), 50);
+    createEmptyMap();
+
+    const boardEl = document.getElementById('game-board');
+    const overlayEl = document.getElementById('world-overlay');
+    const clueOverlayEl = document.getElementById('clue-overlay'); 
+    const containerEl = document.getElementById('game-container');
+    const tooltipEl = document.getElementById('tooltip');
+
+    function getFlagSVG(color, isFlipped) {
+        const transform = isFlipped ? `transform="scale(-1, 1) translate(-24, 0)"` : '';
+        return `<svg viewBox="0 0 24 24" width="16" height="16" style="filter: drop-shadow(0 0 2px #000);"><path ${transform} fill="${color}" d="M4 2v20h2v-6h14l-4-5 4-5H6V2z"/></svg>`;
+    }
+    
+    function getPlayerMarkerSVG() {
+        return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="#c42A12" style="filter: drop-shadow(0 2px 3px rgba(0,0,0,0.8));">
+            <circle cx="12" cy="8.5" r="3.5"/>
+            <polygon points="12,21 16,14 8,14"/>
+        </svg>`;
     }
 
-    /* ================= 통신 ================= */
-    async function api(action, data = {}, { loading = true, silent = false } = {}) {
-        if (loading) showLoading(true);
-        try {
-            const r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ action, password: pw, ...data }) });
-            const j = await r.json();
-            if (!j.success && !silent) alert(j.msg || '요청에 실패했습니다.');
-            return j;
-        } catch (e) {
-            if (!silent) alert(`통신 실패!\n배포 설정을 확인하세요.\n(상세 에러: ${e.message})`);
-            return null;
-        } finally {
-            if (loading) showLoading(false);
+    document.addEventListener('mousemove', (e) => {
+        if (e.target.dataset.memo) {
+            tooltipEl.innerText = e.target.dataset.memo;
+            tooltipEl.style.display = 'block';
+            tooltipEl.style.left = e.pageX + 15 + 'px'; tooltipEl.style.top = e.pageY + 15 + 'px';
+        } else {
+            tooltipEl.style.display = 'none';
         }
-    }
-
-    /* ================= 로그인 / 동기화 ================= */
-    async function attemptLogin(auto = false, autoPw = null) {
-        const input = autoPw || $('login-pw').value.trim();
-        if (!input) return alert('비밀번호를 입력해주세요.');
-        if (!API_URL || API_URL.startsWith('여기에')) return alert('HTML 상단의 API_URL을 입력해주세요.');
-        const res = await api('login', { password: input }, { silent: auto });
-        if (!res || !res.success) { if (auto) sessionStorage.removeItem('pw'); return; }
-        pw = input;
-        sessionStorage.setItem('pw', pw);
-        applyData(res);
-        lastSync = Date.now();
-        $('top-bar').style.display = 'flex';
-        nav('lobby');
-        if (!auto) alert(`[시스템] ${me.name} 님, 환영합니다.`);
-    }
-
-    function applyData(res) {
-        if (res.me) me = res.me;
-        if (res.system) sys = res.system;
-        updateTopBar();
-    }
-
-    async function sync(force = false) {
-        if (!pw) return;
-        if (!force && Date.now() - lastSync < 15000) return;
-        lastSync = Date.now();
-        const res = await api('sync', {}, { loading: false, silent: true });
-        if (res && res.success) { applyData(res); renderCurrent(); }
-    }
-
-    function renderCurrent() {
-        if (currentView === 'lobby') renderScreens();
-        else if (currentView === 'info') renderNotices();
-        else if (currentView === 'items') renderItems();
-        else if (currentView === 'inventory') renderInventory();
-        else if (currentView === 'guest-list') renderGuests();
-    }
-
-    /* ================= 내비게이션 ================= */
-    window.addEventListener('popstate', e => {
-        if (e.state && e.state.viewId && (pw || e.state.viewId === 'login')) navUIOnly(e.state.viewId, e.state.title);
-        else navUIOnly('login', '');
     });
 
-    window.onload = () => {
-        history.replaceState({ viewId: 'login', title: '' }, '', '#login');
-        $('login-pw').addEventListener('keydown', e => { if (e.key === 'Enter') attemptLogin(); });
-        const saved = sessionStorage.getItem('pw');
-        if (saved) attemptLogin(true, saved);
-        setInterval(() => { if (pw && !document.hidden) sync(true); }, SYNC_INTERVAL_MS);
-        setInterval(() => {
-            if (currentView === 'plan' && !document.hidden && !planState.editing) loadPlan(false, true);
-        }, PLAN_REFRESH_MS);
-    };
-
-    function nav(viewId, title = '') {
-        history.pushState({ viewId, title }, '', `#${viewId}`);
-        navUIOnly(viewId, title);
+    async function loadBlockAssets(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        let loadedCount = 0;
+        for (let file of files) {
+            if (file.name.toLowerCase().endsWith('.zip')) {
+                try {
+                    const zip = new JSZip();
+                    const loadedZip = await zip.loadAsync(file);
+                    for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
+                        if (!zipEntry.dir && filename.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
+                            const blob = await zipEntry.async("blob");
+                            const url = URL.createObjectURL(blob);
+                            const name = filename.split('/').pop().split('.')[0]; 
+                            applyBlockAssetToStorage(name, url);
+                            loadedCount++;
+                        }
+                    }
+                } catch (err) { alert("ZIP 파일을 읽는 중 오류가 발생했습니다."); }
+            } else if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                const name = file.name.split('.')[0];
+                applyBlockAssetToStorage(name, url);
+                loadedCount++;
+            }
+        }
+        if (loadedCount > 0) { alert(`총 ${loadedCount}개의 길블럭 에셋이 성공적으로 적용되었습니다!`); renderMap(); }
+        e.target.value = '';
     }
 
-    function navUIOnly(viewId, title = '') {
-        currentView = viewId;
-        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-        const target = $('view-' + viewId);
-        if (target) target.classList.add('active');
+    async function loadPlayerAssets(e) {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+        let loadedCount = 0;
+        for (let file of files) {
+            if (file.name.toLowerCase().endsWith('.zip')) {
+                try {
+                    const zip = new JSZip();
+                    const loadedZip = await zip.loadAsync(file);
+                    for (const [filename, zipEntry] of Object.entries(loadedZip.files)) {
+                        if (!zipEntry.dir && filename.match(/\.(png|jpg|jpeg|gif|webp)$/i)) {
+                            const blob = await zipEntry.async("blob");
+                            const url = URL.createObjectURL(blob);
+                            const name = filename.split('/').pop().split('.')[0]; 
+                            applyPlayerAssetToStorage(name, url);
+                            loadedCount++;
+                        }
+                    }
+                } catch (err) { alert("ZIP 파일을 읽는 중 오류가 발생했습니다."); }
+            } else if (file.type.startsWith('image/')) {
+                const url = URL.createObjectURL(file);
+                const name = file.name.split('.')[0];
+                applyPlayerAssetToStorage(name, url);
+                loadedCount++;
+            }
+        }
+        if (loadedCount > 0) { alert(`총 ${loadedCount}개의 플레이어 에셋이 성공적으로 적용되었습니다!`); renderMap(); }
+        e.target.value = '';
+    }
 
-        const backBtn = $('btn-back'), titleEl = $('page-title'), floatBtn = $('btn-floating-guest');
-        backBtn.onclick = () => nav('lobby');
-        backBtn.innerText = '◀ 로비로';
+    function applyBlockAssetToStorage(name, url) {
+        if (name.includes('십자') || name.toLowerCase().includes('cross')) customAssets.blocks.cross = url;
+        if (name.includes('일자') || name.toLowerCase().includes('straight')) customAssets.blocks.straight = url;
+        if (name.includes('꺾은선') || name.toLowerCase().includes('corner')) customAssets.blocks.corner = url;
+        if (name.includes('외길') || name.toLowerCase().includes('tshape')) customAssets.blocks.tshape = url;
+        if (name.includes('꽉') || name.toLowerCase().includes('full')) customAssets.blocks.full = url;
+        if (name.includes('모서리') || name.toLowerCase().includes('edge')) customAssets.blocks.edge = url;
+        if (name.includes('징검다리') || name.toLowerCase().includes('dot')) customAssets.blocks.dot = url;
+        if (name.includes('시작') || name.toLowerCase().includes('start')) customAssets.blocks.start = url;
+        if (name.includes('목표') || name.toLowerCase().includes('goal')) customAssets.blocks.goal = url;
+        if (name.includes('벽') || name.toLowerCase().includes('wall')) customAssets.blocks.wall = url;
+    }
 
-        if (viewId === 'lobby') {
-            backBtn.style.display = 'none';
-            titleEl.innerText = '✦ CHARACTER LIST ✦';
-            $('top-bar').style.display = 'flex';
-            floatBtn.style.display = 'block';
-        } else if (viewId === 'login') {
-            $('top-bar').style.display = 'none';
-            floatBtn.style.display = 'none';
+    function applyPlayerAssetToStorage(name, url) {
+        if (name.endsWith('_위') || name === '위' || name.endsWith('_뒤') || name === '뒤') customAssets.player['위'] = url;
+        else if (name.endsWith('_아래') || name === '아래' || name.endsWith('_앞') || name === '앞') customAssets.player['아래'] = url;
+        else if (name.endsWith('_왼쪽') || name === '왼쪽') customAssets.player['왼쪽'] = url;
+        else if (name.endsWith('_오른쪽') || name === '오른쪽') customAssets.player['오른쪽'] = url;
+    }
+
+    function toggleGMMenu() {
+        const menu = document.getElementById('gm-tools-menu');
+        menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+    }
+    function openModal(modalId) { document.getElementById(modalId).style.display = 'block'; bringToFront(document.getElementById(modalId)); }
+    function closeModal(modalId) { document.getElementById(modalId).style.display = 'none'; }
+    function makeDraggable(element) {
+        let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0; const header = element.querySelector('.gm-modal-header');
+        element.onmousedown = function() { bringToFront(element); };
+        if (header) { header.onmousedown = dragMouseDown; }
+        function dragMouseDown(e) { e.preventDefault(); pos3 = e.clientX; pos4 = e.clientY; document.onmouseup = closeDragElement; document.onmousemove = elementDrag; }
+        function elementDrag(e) { e.preventDefault(); pos1 = pos3 - e.clientX; pos2 = pos4 - e.clientY; pos3 = e.clientX; pos4 = e.clientY; element.style.top = (element.offsetTop - pos2) + "px"; element.style.left = (element.offsetLeft - pos1) + "px"; }
+        function closeDragElement() { document.onmouseup = null; document.onmousemove = null; }
+    }
+    let highestZ = 10000; function bringToFront(element) { highestZ++; element.style.zIndex = highestZ; }
+    makeDraggable(document.getElementById('modal-notepad')); makeDraggable(document.getElementById('modal-timer')); makeDraggable(document.getElementById('modal-dice'));
+
+    let currentRound = 1; function changeRound(amount) { currentRound = Math.max(1, currentRound + amount); document.getElementById('round-counter').innerText = currentRound; }
+    let timerInterval = null, timeRemaining = 0; const timerDisplay = document.getElementById('timer-display'), inputMin = document.getElementById('t-min'), inputSec = document.getElementById('t-sec');
+    function updateTimerDisplay() { const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0'); const s = (timeRemaining % 60).toString().padStart(2, '0'); timerDisplay.innerText = `${m}:${s}`; if(timeRemaining === 0) timerDisplay.classList.add('alert'); else timerDisplay.classList.remove('alert'); }
+    function startTimer() { if(timerInterval) clearInterval(timerInterval); timerDisplay.classList.remove('alert'); if(inputMin.value !== "" || inputSec.value !== "") { timeRemaining = parseInt(inputMin.value || 0) * 60 + parseInt(inputSec.value || 0); inputMin.value = ""; inputSec.value = ""; } if(timeRemaining <= 0) return; updateTimerDisplay(); timerInterval = setInterval(() => { timeRemaining--; updateTimerDisplay(); if(timeRemaining <= 0) clearInterval(timerInterval); }, 1000); }
+    function pauseTimer() { if(timerInterval) clearInterval(timerInterval); }
+    function resetTimer() { pauseTimer(); timeRemaining = 0; updateTimerDisplay(); timerDisplay.classList.remove('alert'); }
+    function rollDice(max) { const result = Math.floor(Math.random() * max) + 1; document.getElementById('dice-result').innerText = result; const log = document.getElementById('dice-log'); const entry = document.createElement('div'); entry.innerText = `▶ 1d${max} = ${result}`; log.prepend(entry); }
+
+    function toggleLanternMode() { lanternMode = !lanternMode; const btn = document.getElementById('btn-lantern'); btn.classList.toggle('gimmick-type-active', lanternMode); btn.innerText = `🏮 등불: ${lanternMode ? 'ON' : 'OFF'}`; renderMap(); }
+    function toggleGimmickBlindMode() { gimmickBlindMode = !gimmickBlindMode; const btn = document.getElementById('btn-gimmick-blind'); btn.classList.toggle('gimmick-type-active', gimmickBlindMode); btn.innerText = `❓ 블라인드: ${gimmickBlindMode ? 'ON' : 'OFF'}`; renderMap(); }
+    function toggleGMFog() { if (currentMode === 'play') { gmFogPreview = !gmFogPreview; const btn = document.getElementById('btn-fog-preview'); if(gmFogPreview) { document.body.classList.add('preview-fog'); btn.classList.add('gimmick-type-active'); } else { document.body.classList.remove('preview-fog'); btn.classList.remove('gimmick-type-active'); } btn.innerText = `👁️ PL 시야 (미리보기): ${gmFogPreview ? 'ON' : 'OFF'}`; renderMap(); } }
+    function setClueSize(size) { clueSizeMode = size; document.getElementById('clue-size-tile').className = `toggle-btn ${size === 'tile' ? 'gimmick-type-active' : ''}`; document.getElementById('clue-size-block').className = `toggle-btn ${size === 'block' ? 'gimmick-type-active' : ''}`; }
+    
+    function toggleWaterLevel() {
+        globalWaterLevel = !globalWaterLevel;
+        const btn = document.getElementById('btn-water-level');
+        btn.innerText = `🌊 수위 연동: ${globalWaterLevel ? '높음 (침수)' : '낮음'} (GM전용)`;
+        renderMap();
+    }
+
+    function addQuest() {
+        const input = document.getElementById('new-quest-input');
+        if(!input.value.trim()) return;
+        floorQuests[currentFloor].push({ text: input.value.trim(), completed: false });
+        input.value = ''; renderQuestBoard();
+    }
+    function toggleQuest(index) { floorQuests[currentFloor][index].completed = !floorQuests[currentFloor][index].completed; renderQuestBoard(); }
+    function deleteQuest(index) { floorQuests[currentFloor].splice(index, 1); renderQuestBoard(); }
+
+    function renderQuestBoard() {
+        const container = document.getElementById('quest-list-container'); container.innerHTML = '';
+        if (floorQuests[currentFloor].length === 0) { container.innerHTML = `<div style="color:#778da9; font-size:12px; margin-top:5px;">설정된 목표가 없습니다.</div>`; }
+        floorQuests[currentFloor].forEach((q, index) => {
+            const div = document.createElement('div'); div.className = `quest-item ${q.completed ? 'completed' : ''}`;
+            if (currentMode === 'play') { div.innerHTML = `<input type="checkbox" ${q.completed ? 'checked' : ''} onclick="toggleQuest(${index})"> <span>${q.text}</span>`; } 
+            else { div.innerHTML = `<span>- ${q.text}</span><button class="del-btn" onclick="deleteQuest(${index})">✖</button>`; }
+            container.appendChild(div);
+        });
+        document.getElementById('quest-add-box').style.display = (currentMode === 'edit') ? 'flex' : 'none';
+    }
+
+    function savePanelData() { if (currentMode === 'edit') { floorHints[currentFloor] = document.getElementById('hint-input').value; } }
+
+    function saveMap() {
+        savePanelData();
+        if (currentMode === 'play' && playerPos) playerPositions[currentFloor] = { ...playerPos };
+        const saveData = { mapData, worldGimmickData, worldMarkerData, worldClueData, currentFloor, playerSpawns, playerPositions, floorQuests, floorHints, globalWaterLevel };
+        const blob = new Blob([JSON.stringify(saveData)], { type: "application/json" });
+        const link = document.createElement("a"); link.href = URL.createObjectURL(blob); link.download = "distortion_world_save.json"; link.click();
+    }
+
+    function loadMap(e) {
+        const file = e.target.files[0]; if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const loaded = JSON.parse(event.target.result);
+                mapData = loaded.mapData; worldGimmickData = loaded.worldGimmickData; worldMarkerData = loaded.worldMarkerData; currentFloor = loaded.currentFloor;
+                worldClueData = loaded.worldClueData || Array.from({length: MAX_FLOORS}, () => Array.from({length: 27}, () => Array(27).fill(null)));
+                playerSpawns = loaded.playerSpawns || Array(MAX_FLOORS).fill(null); playerPositions = loaded.playerPositions || Array(MAX_FLOORS).fill(null);
+                
+                mapData.forEach(f => f.forEach(r => r.forEach(b => { if(!b.tileStates) b.tileStates = Array(9).fill(0); })));
+                globalWaterLevel = loaded.globalWaterLevel || false;
+                const waterBtn = document.getElementById('btn-water-level');
+                if(waterBtn) waterBtn.innerText = `🌊 수위 연동: ${globalWaterLevel ? '높음 (침수)' : '낮음'} (GM전용)`;
+
+                const loadedQuests = loaded.floorQuests || Array(MAX_FLOORS).fill(null).map(() => []);
+                floorQuests = loadedQuests.map(qList => { if (Array.isArray(qList)) return qList; return qList ? [{text: qList, completed: false}] : []; });
+                
+                floorHints = loaded.floorHints || Array(MAX_FLOORS).fill("");
+                updateFloorUI(); if (currentMode === 'play') playerPos = playerPositions[currentFloor]; renderMap();
+            } catch(err) { console.error(err); } e.target.value = ''; 
+        }; reader.readAsText(file);
+    }
+
+    // 단서 표시 아이콘: 경고 / 의문 / 중요(팔·손처럼 멀리서도 보이는 것)
+    function clueIcon(k) {
+        if (k === 'warning') return '⚠️';
+        if (k === 'landmark') return '<span style="color:#ffd166; text-shadow:0 0 8px rgba(255,209,102,.9), 0 0 3px #000;">✦</span>';
+        return '❓';
+    }
+    function showToast(msg, bad) {
+        let t = document.getElementById('toast');
+        if (!t) { t = document.createElement('div'); t.id = 'toast'; t.style.cssText = 'position:fixed;left:50%;bottom:28px;transform:translateX(-50%);padding:8px 16px;border-radius:8px;font-size:13px;z-index:9999;pointer-events:none;transition:opacity .3s;box-shadow:0 4px 14px rgba(0,0,0,.5);'; document.body.appendChild(t); }
+        t.textContent = msg; t.style.background = bad ? '#7a1f2b' : '#1b3a4b'; t.style.color = '#fff'; t.style.border = '1px solid ' + (bad ? '#e74c3c' : '#5ed6cd'); t.style.opacity = '1';
+        clearTimeout(t._h); t._h = setTimeout(() => { t.style.opacity = '0'; }, 1200);
+    }
+    async function copyMapImage(copyMode) {
+        const prevMode = currentMode;
+        if (copyMode === 'GM') setMode('edit'); else if (copyMode === 'PL') { isCapturingPL = true; setMode('play'); }
+        document.body.classList.add(`capture-${copyMode}`); renderMap(); 
+        
+        const target = document.getElementById('capture-target');
+        
+        // 🌟 html2canvas 캡처 시 스크롤 잘림 현상 방지를 위해 임시 스타일 조정
+        const oldOverflow = target.style.overflow;
+        target.style.overflow = 'visible'; 
+        
+        try {
+            const canvas = await html2canvas(target, { backgroundColor: '#0b132b', scale: 2 });
+            canvas.toBlob(async (blob) => { try { const item = new ClipboardItem({ "image/png": blob }); await navigator.clipboard.write([item]); showToast('📸 클립보드에 복사됨'); } catch (err) { showToast('클립보드 복사 실패', true); } });
+        } catch (err) {} finally { 
+            target.style.overflow = oldOverflow;
+            document.body.classList.remove(`capture-${copyMode}`); if (copyMode === 'PL') isCapturingPL = false; setMode(prevMode); renderMap(); 
+        }
+    }
+
+    function getOriginalTileCoord(vx, vy, rotation) {
+        let r = rotation % 360; if (r < 0) r += 360;
+        if (r === 0) return {x: vx, y: vy}; if (r === 90) return {x: vy, y: 2 - vx}; if (r === 180) return {x: 2 - vx, y: 2 - vy}; if (r === 270) return {x: 2 - vy, y: vx};
+    }
+
+    function initBoard() {
+        boardEl.innerHTML = '';
+        for (let y = 0; y < GRID_SIZE; y++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+                const blockEl = document.createElement('div'); blockEl.className = 'block'; blockEl.id = `block-${x}-${y}`;
+                blockEl.addEventListener('contextmenu', (e) => { e.preventDefault(); if(currentMode === 'play') handleRightClickBlockMove(x, y); });
+                for (let i = 0; i < 9; i++) {
+                    const tileEl = document.createElement('div'); tileEl.className = 'tile';
+                    tileEl.addEventListener('click', (e) => { e.stopPropagation(); handleTileClick(x, y, i); }); blockEl.appendChild(tileEl);
+                } boardEl.appendChild(blockEl);
+            }
+        }
+        updateFloorUI(); selectEditTool(document.getElementById('btn-cross'), 'shape', 'cross'); renderMap();
+    }
+
+    function toggleBrushConstraint(type) { if (type === 'move') { brushMovable = !brushMovable; document.getElementById('brush-move-btn').className = `toggle-btn ${brushMovable ? 'prop-on' : 'prop-off'}`; } else if (type === 'rotate') { brushRotatable = !brushRotatable; document.getElementById('brush-rot-btn').className = `toggle-btn ${brushRotatable ? 'prop-on' : 'prop-off'}`; } }
+
+    function updateBrushPreview() {
+        document.getElementById('brush-rot-text').innerText = brushRotation + '도'; const previewEl = document.getElementById('mini-preview'); previewEl.innerHTML = '';
+        let layout = blockTypes[currentEditTool] ? blockTypes[currentEditTool].tiles : Array(9).fill(0); if (currentEditCategory !== 'shape') layout = blockTypes['cross'].tiles; 
+        if (currentEditTool === 'empty') { previewEl.style.backgroundColor = '#040814'; previewEl.style.border = '1px dashed #1c2541'; } else if (currentEditTool === 'wall') { previewEl.style.backgroundColor = '#0b132b'; } else if (currentEditTool === 'surf') { previewEl.style.backgroundColor = '#3b1868'; previewEl.style.border = '1px solid #7a4fc0'; } else { previewEl.style.backgroundColor = '#1b263b'; previewEl.style.border = '1px solid #415a77'; }
+        for(let i=0; i<9; i++) { const vx = i % 3, vy = Math.floor(i / 3); const orig = getOriginalTileCoord(vx, vy, brushRotation); const t = document.createElement('div'); t.style.width = '18px'; t.style.height = '18px'; t.style.boxShadow = 'inset 0 0 0 1px rgba(0,0,0,0.2)'; if(layout[orig.y * 3 + orig.x] && currentEditTool !== 'wall' && currentEditTool !== 'surf') t.style.backgroundColor = '#4a6fa5'; previewEl.appendChild(t); }
+    }
+
+    function rotateBrush() { brushRotation = (brushRotation + 90) % 360; updateBrushPreview(); }
+    
+    function updateFloorUI() { 
+        document.getElementById('floor-info').innerText = floorNames[currentFloor]; 
+        document.getElementById('hint-input').value = floorHints[currentFloor] || "";
+        document.getElementById('hint-display').innerText = floorHints[currentFloor] || "남겨진 힌트가 없습니다.";
+        renderQuestBoard();
+    }
+
+    function changeFloor(dir) {
+        savePanelData(); 
+        let newFloor = currentFloor + dir;
+        if (newFloor >= 0 && newFloor < MAX_FLOORS) {
+            if (currentMode === 'play' && playerPos) playerPositions[currentFloor] = { ...playerPos };
+            currentFloor = newFloor; updateFloorUI(); 
+            selectedBlockForMove = null; highlightedBlocks = []; 
+            if (currentMode === 'play') playerPos = playerPositions[currentFloor];
+            renderMap();
+        }
+    }
+
+    function setMode(mode) {
+        document.body.classList.toggle('gm-edit', mode === 'edit');
+        if(currentMode === 'edit') savePanelData(); 
+
+        currentMode = mode;
+        if (mode !== 'play') {
+            gmFogPreview = false; document.body.classList.remove('preview-fog');
+            const btn = document.getElementById('btn-fog-preview');
+            if(btn) { btn.classList.remove('gimmick-type-active'); btn.innerText = '👁️ PL 시야 (미리보기): OFF'; }
+        }
+
+        document.getElementById('mode-edit').className = `toggle-btn ${mode === 'edit' ? 'active' : ''}`;
+        document.getElementById('mode-play').className = `toggle-btn ${mode === 'play' ? 'active' : ''}`;
+        document.getElementById('edit-tools').style.display = mode === 'edit' ? 'block' : 'none';
+        document.getElementById('play-tools').style.display = mode === 'play' ? 'block' : 'none';
+
+        const blockAssetBtn = document.getElementById('btn-block-asset');
+        const playerAssetBtn = document.getElementById('btn-player-asset');
+        if(blockAssetBtn) blockAssetBtn.style.display = mode === 'edit' ? 'block' : 'none';
+        if(playerAssetBtn) playerAssetBtn.style.display = mode === 'edit' ? 'block' : 'none';
+
+        if (mode === 'play') {
+            document.getElementById('hint-input').style.display = 'none';
+            document.getElementById('hint-display').style.display = 'block';
+            document.getElementById('hint-display').innerText = floorHints[currentFloor] || "남겨진 힌트가 없습니다.";
         } else {
-            backBtn.style.display = 'block';
-            titleEl.innerText = title ? `✦ ${title} ✦` : '✦ SYSTEM ✦';
-            floatBtn.style.display = 'none';
+            document.getElementById('hint-input').style.display = 'block';
+            document.getElementById('hint-display').style.display = 'none';
+            document.getElementById('hint-input').value = floorHints[currentFloor];
         }
-
-        if (viewId === 'plan') { renderComposerAvatar(); if (plan) renderPlan(); loadPlan(!plan); }
-        else if (viewId !== 'login') { renderCurrent(); sync(); }
-    }
-
-    function openInventoryView() { nav('inventory', '내 소지품'); }
-
-    /* ================= 상단 바 ================= */
-    function updateTopBar() {
-        if (!me) return;
-        $('ui-name').innerText = me.name;
-        $('ui-hp').innerText = showDash(me.hp);
-        $('ui-maxhp').innerText = showDash(me.maxHp);
-        $('ui-zero').innerText = `소멸 ${me.zero || 0}회`;
-        const st = $('ui-status');
-        if (me.status) { st.innerText = me.status; st.style.background = statusColor(me.status); st.style.display = 'inline-block'; }
-        else st.style.display = 'none';
-        $('ui-inv-alert').style.display = hasNewItems() ? 'inline-block' : 'none';
-    }
-
-    /* ================= 로비 (화면 시트) ================= */
-    function renderScreens() {
-        const box = $('screen-list');
-        const screens = (sys && sys.screens) || [];
-        if (!screens.length) { box.innerHTML = '<p class="empty-msg">\'화면\' 시트에 등록된 메뉴가 없습니다.</p>'; return; }
-        box.innerHTML = screens.map((s, i) => {
-            const img = imgUrl(s.img);
-            return `
-                <div class="char-card-v2" style="${img ? `background-image:url('${esc(img)}');` : ''}" onclick="openScreen(${i})">
-                    <div class="char-details">
-                        <h2>${esc(s.name)}</h2>
-                        <div>${esc(s.role)}</div>
-                    </div>
-                </div>`;
-        }).join('');
-    }
-
-    function openScreen(i) {
-        const s = sys.screens[i];
-        const target = VIEW_ALIAS[s.link] || VIEW_ALIAS[s.name];
-        if (!target) return alert('추후 공개됩니다.');
-        nav(target, s.name);
-    }
-
-    /* ================= 공지 ================= */
-    function renderNotices() {
-        const list = $('notice-list');
-        const notices = (sys && sys.notices) || [];
-        if (!notices.length) { list.innerHTML = '<p class="empty-msg">등록된 공지사항이 없습니다.</p>'; return; }
-        list.innerHTML = notices.map(n => {
-            const cat = n.category || '안내';
-            let color = 'var(--gold-main)';
-            if (cat.includes('업데이트')) color = 'var(--text-sub)';
-            else if (cat.includes('중요')) color = '#ff5555';
-            return `
-                <div style="background:rgba(255,255,255,0.03); border-left:4px solid ${color}; padding:15px; border-radius:4px;">
-                    <h4 style="color:${color}; margin:0 0 10px 0; font-size:18px;">[${esc(cat)}] ${esc(n.title || '제목 없음')}</h4>
-                    <p style="color:#ccc; margin:0; font-size:14px; line-height:1.6;">${String(n.content || '').replace(/\n/g, '<br>')}</p>
-                    <span style="color:#666; font-size:12px; margin-top:10px; display:block;">${esc(n.date || '')}</span>
-                </div>`;
-        }).join('');
-    }
-
-    /* ================= 아이템 (아이템 시트, D열 체크만) ================= */
-    function renderItems() {
-        const list = $('items-list');
-        const items = (sys && sys.items) || [];
-        $('items-count').innerText = items.length ? `총 ${items.length}개` : '';
-        if (!items.length) { list.innerHTML = '<p class="empty-msg" style="grid-column:1/-1;">아직 획득한 아이템이 없습니다.</p>'; return; }
-        list.innerHTML = items.map((it, i) => {
-            const img = imgUrl(it.img);
-            return `
-                <div class="gallery-card" onclick="openItemModal(${i})">
-                    <div class="gallery-img">${img ? `<img src="${esc(img)}" alt="" loading="lazy">` : 'NO IMAGE'}</div>
-                    <div class="gallery-name">${esc(it.name)}</div>
-                    <div class="gallery-desc">${esc(it.desc)}</div>
-                </div>`;
-        }).join('');
-    }
-
-    function openItemModal(i) {
-        const it = sys.items[i];
-        const img = imgUrl(it.img);
-        $('mi-img').innerHTML = img ? `<img src="${esc(img)}" alt="" style="max-width:100%; max-height:300px; object-fit:contain; border-radius:8px; border:1px solid var(--gold-dark);">` : '';
-        $('mi-name').innerText = it.name;
-        $('mi-desc').innerText = it.desc || '설명이 없습니다.';
-        openModal('modal-item');
-    }
-
-    /* ================= 소지품 ================= */
-    function invKey() { return `inv_seen_${me.name}`; }
-    function invCounts() { const c = {}; (me.inventory || []).forEach(n => c[n] = (c[n] || 0) + 1); return c; }
-    function hasNewItems() {
-        if (!me) return false;
-        const seen = lsGet(invKey());
-        const cur = invCounts();
-        if (!seen) { lsSet(invKey(), cur); return false; }
-        return Object.keys(cur).some(n => cur[n] > (seen[n] || 0));
-    }
-
-    function renderInventory() {
-        const list = $('inventory-list');
-        const seen = lsGet(invKey()) || {};
-        const cur = invCounts();
-        invGroups = [];
-        const map = {};
-        (me.inventory || []).forEach(n => { if (!map[n]) { map[n] = { name: n, count: 0 }; invGroups.push(map[n]); } map[n].count++; });
-
-        if (!invGroups.length) {
-            list.innerHTML = '<p class="empty-msg" style="grid-column:1/-1;">소지품이 비어있습니다.</p>';
-        } else {
-            list.innerHTML = invGroups.map((g, i) => {
-                const isNew = g.count > (seen[g.name] || 0);
-                const effect = (sys.effects && sys.effects[g.name]) || '효과가 기록되지 않은 소지품입니다.';
-                return `
-                    <div class="item-card ${isNew ? 'is-new' : ''}">
-                        <div class="item-delete-btn" onclick="askDiscard(${i})" title="버리기">✖</div>
-                        <div style="padding-right:30px;">
-                            <div style="color:var(--gold-light); font-weight:bold; font-size:18px;">${esc(g.name)}${g.count > 1 ? `<span class="count-tag">×${g.count}</span>` : ''}${isNew ? '<span class="new-tag">NEW</span>' : ''}</div>
-                            <div style="font-size:14px; color:#ccc; margin-top:8px; white-space:pre-wrap;">${esc(effect)}</div>
-                        </div>
-                        <div style="display:flex; gap:10px; margin-top:15px;">
-                            <button class="btn-outline" style="flex:1; border-color:rgba(255,255,255,0.2);" onclick="askUse(${i})">사용</button>
-                            <button class="btn-outline" style="flex:1; border-color:rgba(255,255,255,0.2);" onclick="openTransfer(${i})">양도</button>
-                        </div>
-                    </div>`;
-            }).join('');
+        
+        renderQuestBoard();
+        selectedBlockForMove = null; highlightedBlocks = [];
+        
+        if (mode === 'play') {
+            for (let i = 0; i < MAX_FLOORS; i++) {
+                if (!playerPositions[i] && playerSpawns[i]) {
+                    playerPositions[i] = { wx: playerSpawns[i].wx, wy: playerSpawns[i].wy, z: i };
+                    const nbx = Math.floor(playerSpawns[i].wx / 3), nby = Math.floor(playerSpawns[i].wy / 3);
+                    mapData[i][nby][nbx].revealed = true;
+                }
+            }
+            playerPos = playerPositions[currentFloor]; 
+        } else { 
+            if (playerPos) playerPositions[currentFloor] = { ...playerPos };
+            playerPos = null; 
         }
-        lsSet(invKey(), cur);
-        updateTopBar();
+        renderMap();
     }
 
-    function askUse(i) {
-        const g = invGroups[i];
-        confirmBox({ title: g.name, desc: (sys.effects && sys.effects[g.name]) || '', msg: '사용하시겠습니까?', sub: '※ 사용하면 소지품 목록에서 1개 사라집니다.' }, async () => {
-            const res = await api('useItem', { itemName: g.name });
-            if (res && res.success) { applyData(res); renderInventory(); alert(`[${g.name}]${getJosa(g.name, '을/를')} 사용했습니다.`); }
-        });
+    function selectEditTool(btnEl, category, tool) {
+        currentEditCategory = category; currentEditTool = tool;
+        document.querySelectorAll('#edit-tools .tool-btn').forEach(btn => btn.classList.remove('active-tool'));
+        if(btnEl) btnEl.classList.add('active-tool'); updateBrushPreview();
+        const wrow = document.getElementById('warp-color-row'); if (wrow) { const on = (category === 'gimmick' && tool === 'warphole'); wrow.style.display = on ? 'block' : 'none'; if (on) renderWarpSwatches(); }
+    }
+    function selectPlayTool(btnEl, tool) { playTool = tool; document.querySelectorAll('#play-tools .tool-btn').forEach(btn => btn.classList.remove('active-tool')); if(btnEl) btnEl.classList.add('active-tool'); }
+    function setGimmickBinding(type) { gimmickBinding = type; document.getElementById('bind-a').className = `toggle-btn ${type === 'A' ? 'gimmick-type-active' : ''}`; document.getElementById('bind-b').className = `toggle-btn ${type === 'B' ? 'gimmick-type-active' : ''}`; }
+
+    function hasSurfTile(b) { return !!(b.tileStates && b.tileStates.some(t => t === 4)); }
+
+    function handleRightClickBlockMove(bx, by) {
+        const targetBlock = mapData[currentFloor][by][bx]; if (targetBlock.type === 'empty' || targetBlock.type === 'wall' || !targetBlock.isMovable || (targetBlock.floating && !targetBlock.floated)) { selectedBlockForMove = null; highlightedBlocks = []; renderMap(); return; }
+        selectedBlockForMove = { x: bx, y: by }; highlightedBlocks = [];
+        const directions = [[0, -1], [0, 1], [-1, 0], [1, 0]]; 
+        for (let d of directions) { let nx = bx + d[0], ny = by + d[1]; while (nx >= 0 && nx < GRID_SIZE && ny >= 0 && ny < GRID_SIZE) { if (mapData[currentFloor][ny][nx].type === 'empty' && !hasSurfTile(mapData[currentFloor][ny][nx])) { highlightedBlocks.push({ x: nx, y: ny }); nx += d[0]; ny += d[1]; } else break; } }
+        renderMap();
     }
 
-    function askDiscard(i) {
-        const g = invGroups[i];
-        confirmBox({ title: g.name, msg: '이 소지품을 버리시겠습니까?', sub: '※ 효과는 적용되지 않고 1개가 사라집니다.' }, async () => {
-            const res = await api('discardItem', { itemName: g.name });
-            if (res && res.success) { applyData(res); renderInventory(); alert(`[${g.name}]${getJosa(g.name, '을/를')} 버렸습니다.`); }
-        });
-    }
+    function handleTileClick(bx, by, domIndex) {
+        const block = mapData[currentFloor][by][bx];
+        const vx = domIndex % 3; const vy = Math.floor(domIndex / 3);
+        const orig = getOriginalTileCoord(vx, vy, block.rotation); const origIndex = orig.y * 3 + orig.x;
 
-    function openTransfer(i) {
-        const g = invGroups[i];
-        $('mt-item').innerText = g.name;
-        $('mt-target').value = '';
-        $('guest-names').innerHTML = ((sys && sys.guests) || []).filter(x => x.name !== me.name).map(x => `<option value="${esc(x.name)}">`).join('');
-        $('mt-ok').onclick = async () => {
-            const target = $('mt-target').value.trim();
-            if (!target) return alert('받는 사람 이름을 입력해주세요.');
-            closeModal('modal-transfer');
-            const res = await api('giveItem', { itemName: g.name, target });
-            if (res && res.success) { applyData(res); renderInventory(); alert(`[성공]\n[${g.name}]${getJosa(g.name, '을/를')} ${res.targetName} 님에게 양도했습니다.`); }
-        };
-        openModal('modal-transfer');
-        setTimeout(() => $('mt-target').focus(), 50);
-    }
+        if (currentMode === 'edit') {
+            if (currentEditCategory === 'system') {
+                if (currentEditTool === 'float') {
+                    if (['empty', 'wall', 'surf', 'start', 'goal'].includes(block.type)) return;
+                    block.floating = !block.floating; block.floated = false;
+                }
+                if (currentEditTool === 'spawn') { if (block.type === 'empty' || block.type === 'wall') return; playerSpawns[currentFloor] = { wx: bx * 3 + vx, wy: by * 3 + vy }; playerPositions[currentFloor] = null; }
+            } 
+            else if (currentEditCategory === 'shape') {
+                block.type = currentEditTool; block.rotation = brushRotation; block.isMovable = brushMovable; block.isRotatable = brushRotatable;
+                if (currentEditTool === 'empty' || currentEditTool === 'wall' || currentEditTool === 'surf') { block.gimmicks = Array(9).fill(null); block.markers = Array(9).fill(null); block.isMovable = false; block.isRotatable = false; block.tileStates = Array(9).fill(0); }
+            } 
+            else if (currentEditCategory === 'tile') {
+                if (block.type === 'wall' || block.type === 'surf') return;
+                if (block.type === 'empty' && currentEditTool !== 4 && currentEditTool !== 0) return;
+                if (!block.tileStates) block.tileStates = Array(9).fill(0);
+                block.tileStates[origIndex] = currentEditTool;
+            }
+            else if (currentEditCategory === 'gimmick') {
+                if (currentEditTool === 'delete') { block.gimmicks[origIndex] = null; worldGimmickData[currentFloor][by*3 + vy][bx*3 + vx] = null; } 
+                else {
+                    const memoInput = document.getElementById('gimmick-memo'); const gimmickObj = { type: currentEditTool, memo: memoInput.value, isIdentified: false };
+                    if (currentEditTool === 'warphole') {
+                        if (currentWarpColor !== WARP_COLORS[0]) gimmickObj.color = currentWarpColor;
+                        const prev = (gimmickBinding === 'A') ? block.gimmicks[origIndex] : worldGimmickData[currentFloor][by*3 + vy][bx*3 + vx];
+                        if (prev && prev.type === 'warphole' && !memoInput.value) { gimmickObj.memo = prev.memo; gimmickObj.isIdentified = prev.isIdentified; }
+                    }
+                    if (gimmickBinding === 'A') { if (block.type === 'empty' || block.type === 'wall' || block.type === 'surf') return; worldGimmickData[currentFloor][by*3 + vy][bx*3 + vx] = null; block.gimmicks[origIndex] = gimmickObj; } 
+                    else { block.gimmicks[origIndex] = null; worldGimmickData[currentFloor][by*3 + vy][bx*3 + vx] = gimmickObj; }
+                    memoInput.value = ''; 
+                }
+            }
+            renderMap();
+        } 
+        else if (currentMode === 'play') {
+            if (selectedBlockForMove !== null) {
+                if (highlightedBlocks.some(pos => pos.x === bx && pos.y === by)) {
+                    const srcX = selectedBlockForMove.x, srcY = selectedBlockForMove.y; const temp = mapData[currentFloor][by][bx];
+                    mapData[currentFloor][by][bx] = mapData[currentFloor][srcY][srcX]; mapData[currentFloor][srcY][srcX] = temp;
+                    if (playerPos && playerPos.z === currentFloor && Math.floor(playerPos.wx / 3) === srcX && Math.floor(playerPos.wy / 3) === srcY) { playerPos.wx += (bx - srcX) * 3; playerPos.wy += (by - srcY) * 3; }
+                } 
+                selectedBlockForMove = null; highlightedBlocks = []; renderMap(); return; 
+            }
 
-    /* ================= 명단 ================= */
-    function renderGuests() {
-        const box = $('guest-list-container');
-        const guests = ((sys && sys.guests) || []).slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-        guestCache = guests;
-        if (!guests.length) { box.innerHTML = '<p style="color:var(--text-sub);">명단이 아직 등록되지 않았습니다.</p>'; return; }
-        box.innerHTML = guests.map((g, i) => {
-            const max = Number(g.maxHp) || 0, hp = Number(g.hp) || 0;
-            const pct = max > 0 ? Math.max(0, Math.min(100, hp / max * 100)) : 0;
-            const color = pct >= 50 ? 'linear-gradient(90deg, #4caf50, #81c784)' : pct >= 25 ? 'linear-gradient(90deg, #ffc107, #ffd54f)' : 'linear-gradient(90deg, #f44336, #e57373)';
-            const img = imgUrl(g.img);
-            const imgTag = img ? `<img src="${esc(img)}" class="guest-img" alt="" loading="lazy">` : `<div class="guest-img" style="display:flex; justify-content:center; align-items:center; color:#555;">No Image</div>`;
-            const badge = g.status ? `<span style="background:${statusColor(g.status)}; color:#fff; font-size:11px; padding:2px 6px; border-radius:8px; margin-left:6px; font-weight:bold;">${esc(g.status)}</span>` : '';
-            return `
-                <div class="guest-card">
-                    ${imgTag}
-                    <h3 style="color:var(--gold-light); margin:0 0 2px 0; font-size:22px; font-family:var(--font-serif);">${esc(g.name)}</h3>
-                    <div style="font-size:11px; color:rgba(255,255,255,0.4); margin-bottom:12px;">시트 기재 이름 : ${esc(g.sheetName)}</div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                        <div style="font-size:12px; color:#fff; font-weight:bold; display:flex; align-items:center; flex-wrap:wrap;">
-                            <span style="color:var(--gold-main); margin-right:4px;">존재감</span> ${max > 0 ? `${hp} / ${max}` : '-'}
-                            <span class="zero-pill" title="존재감이 0이 된 횟수">소멸 ${g.zero || 0}</span>
-                            ${badge}
-                        </div>
-                        <button title="프로필 새 탭으로 열기" class="btn-outline" style="padding:2px 10px; font-size:12px; border-color:var(--gold-main); color:var(--gold-light); border-radius:4px; height:24px; line-height:1;" onclick="openDoc(${i})">▶</button>
-                    </div>
-                    <div class="guest-hp-bar"><div class="guest-hp-fill" style="width:${pct}%; background:${color};"></div></div>
-                    <div class="guest-stats">
-                        <span><span style="color:var(--gold-main);">힘</span> ${esc(showDash(g.str))}</span>
-                        <span><span style="color:var(--gold-main);">민첩</span> ${esc(showDash(g.dex))}</span>
-                        <span><span style="color:var(--gold-main);">운</span> ${esc(showDash(g.luk))}</span>
-                    </div>
-                </div>`;
-        }).join('');
-    }
-
-    /* ================= 프로필 (새 탭) ================= */
-    function openDoc(i) {
-        const g = guestCache[i];
-        if (!g.link) return alert('등록된 프로필 링크가 없습니다.');
-        let url = g.link.trim();
-        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
-        window.open(url, '_blank', 'noopener');
-    }
-
-    /* ================= 작전 구상 ================= */
-    function findGuest(name) { return ((sys && sys.guests) || []).find(g => g.name === name); }
-    function avatarHtml(name, small = false) {
-        const g = findGuest(name);
-        const img = g ? imgUrl(g.img) : '';
-        const cls = `avatar${small ? ' sm' : ''}`;
-        if (img) return `<img class="${cls}" src="${esc(img)}" alt="" loading="lazy">`;
-        return `<div class="${cls}">${esc((name || '?').charAt(0))}</div>`;
-    }
-    function renderComposerAvatar() { if (me) $('composer-avatar').innerHTML = avatarHtml(me.name); }
-    function updateCount() { $('plan-count').innerText = $('plan-input').value.length; }
-
-    function planSeenKey() { return `plan_seen_${me.name}`; }
-
-    async function loadPlan(showLoad = true, silent = false) {
-        const res = await api('getPlan', {}, { loading: showLoad, silent });
-        if (res && res.success) { plan = res.plan; planState.lastLoad = new Date(); renderPlan(); }
-    }
-
-    function pageCounts() {
-        const c = {};
-        plan.posts.forEach(p => { if (!p.deleted) c[p.pageId] = (c[p.pageId] || 0) + 1; });
-        return c;
-    }
-
-    function renderPlan() {
-        if (!plan || !me) return;
-        const pages = plan.pages;
-        if (!pages.some(p => p.id === planState.pageId)) planState.pageId = pages.length ? pages[0].id : null;
-
-        const counts = pageCounts();
-        let seen = lsGet(planSeenKey());
-        if (!seen) { seen = {}; pages.forEach(p => seen[p.id] = counts[p.id] || 0); }
-        if (planState.pageId) seen[planState.pageId] = counts[planState.pageId] || 0;
-        lsSet(planSeenKey(), seen);
-
-        $('plan-pages').innerHTML = pages.length ? pages.map((p, i) => `
-            <button class="page-chip ${p.id === planState.pageId ? 'active' : ''}" onclick="selectPage('${p.id}')" title="${esc(p.title)}">
-                <span class="page-no">${i + 1}쪽</span>
-                <span class="page-name">${esc(p.title)}</span>
-                ${(counts[p.id] || 0) > (seen[p.id] || 0) ? '<span class="page-new"></span>' : ''}
-                <span class="page-count">${counts[p.id] || 0}</span>
-            </button>`).join('') : '<div class="hint">쪽이 없습니다.</div>';
-
-        const idx = pages.findIndex(p => p.id === planState.pageId);
-        const page = pages[idx];
-        if (!page) {
-            $('plan-page-title').innerText = '작전 구상';
-            $('plan-page-meta').innerText = '＋ 새 쪽을 만들어 작전을 시작하세요.';
-            $('plan-owner-tools').innerHTML = '';
-            $('plan-posts').innerHTML = '';
-            return;
-        }
-        $('plan-page-title').innerText = `${idx + 1}쪽 · ${page.title}`;
-        const topCount = plan.posts.filter(p => p.pageId === page.id && !p.parentId && !p.deleted).length;
-        $('plan-page-meta').innerText = `${page.owner} 님이 만든 쪽 · 글 ${topCount}개`;
-        $('plan-owner-tools').innerHTML = page.owner === me.name ? `
-            <button class="link-btn" onclick="openRenamePage()">이름 변경</button>
-            <button class="link-btn danger" onclick="askDeletePage()">쪽 삭제</button>` : '';
-        $('plan-order-btn').innerText = planState.order === 'new' ? '최신순 ⇅' : '오래된순 ⇅';
-        $('plan-updated').innerText = planState.lastLoad ? `${planState.lastLoad.toTimeString().slice(0, 5)} 기준` : '';
-        renderPosts(page.id);
-    }
-
-    function renderPosts(pageId) {
-        // 작성 중인 댓글/수정 내용 보존
-        const drafts = {};
-        document.querySelectorAll('#plan-posts textarea[data-draft]').forEach(t => drafts[t.dataset.draft] = t.value);
-        const focused = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.draft : null;
-
-        const onPage = plan.posts.filter(p => p.pageId === pageId);
-        let tops = onPage.filter(p => !p.parentId);
-        if (planState.order === 'new') tops = tops.slice().reverse();
-        const children = {};
-        onPage.filter(p => p.parentId).forEach(c => (children[c.parentId] = children[c.parentId] || []).push(c));
-
-        const box = $('plan-posts');
-        if (!tops.length) { box.innerHTML = '<div class="empty-msg">아직 글이 없습니다. 첫 작전을 제안해 보세요!</div>'; return; }
-        box.innerHTML = tops.map(p => postHtml(p, children[p.id] || [], drafts)).join('');
-        box.querySelectorAll('textarea').forEach(autoGrow);
-        if (focused) { const t = box.querySelector(`textarea[data-draft="${focused}"]`); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }
-    }
-
-    function bodyOrEdit(p, drafts, isComment) {
-        if (planState.editing === p.id) {
-            const key = `edit-${p.id}`;
-            const val = drafts[key] != null ? drafts[key] : p.content;
-            return `
-                <div class="edit-box" ${isComment ? 'style="margin-left:0;"' : ''}>
-                    <textarea data-draft="${key}" maxlength="3000" oninput="autoGrow(this)" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();saveEdit('${p.id}');}">${esc(val)}</textarea>
-                    <div class="edit-actions">
-                        <button class="btn-outline btn-small" onclick="cancelEdit()">취소</button>
-                        <button class="btn-primary btn-small" onclick="saveEdit('${p.id}')">저장</button>
-                    </div>
-                </div>`;
-        }
-        if (isComment) return `<div class="comment-body">${linkify(esc(p.content))}</div>`;
-        if (p.deleted) return `<div class="post-body deleted">삭제된 글입니다.</div>`;
-        return `<div class="post-body">${linkify(esc(p.content))}</div>`;
-    }
-
-    function toolsHtml(p) {
-        if (p.deleted || p.author !== me.name || planState.editing === p.id) return '';
-        return `<div class="post-actions">
-            <button class="link-btn" onclick="startEdit('${p.id}')">수정</button>
-            <button class="link-btn danger" onclick="askDeletePost('${p.id}')">삭제</button>
-        </div>`;
-    }
-
-    function postHtml(p, comments, drafts) {
-        const LIMIT = 3;
-        const expanded = planState.expanded.has(p.id);
-        const hidden = !expanded && comments.length > LIMIT ? comments.length - LIMIT : 0;
-        const shown = hidden ? comments.slice(-LIMIT) : comments;
-        const replyKey = `reply-${p.id}`;
-        const replyOpen = planState.replyOpen.has(p.id) || (drafts[replyKey] || '').length > 0;
-
-        const commentsHtml = shown.map(c => `
-            <div class="comment">
-                ${avatarHtml(c.author, true)}
-                <div class="comment-main">
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="post-name" style="font-size:13px;">${esc(c.author)}</span>
-                        ${c.edited ? '<span class="post-time" style="margin-left:0;">(수정됨)</span>' : ''}
-                        <span style="flex:1;"></span>
-                        ${toolsHtml(c)}
-                    </div>
-                    ${bodyOrEdit(c, drafts, true)}
-                </div>
-            </div>`).join('');
-
-        const showComments = comments.length > 0 || (replyOpen && !p.deleted);
-        return `
-            <div class="post ${p.author === me.name && !p.deleted ? 'mine' : ''}">
-                <div class="post-head">
-                    ${avatarHtml(p.author)}
-                    <div class="post-who">
-                        <span class="post-name">${p.deleted ? '-' : esc(p.author)}</span>
-                        ${p.edited && !p.deleted ? '<span class="post-time">(수정됨)</span>' : ''}
-                    </div>
-                    ${toolsHtml(p)}
-                </div>
-                ${bodyOrEdit(p, drafts, false)}
-                <div class="post-foot">
-                    ${p.deleted ? '' : `<button class="link-btn" onclick="toggleReply('${p.id}')">💬 댓글${comments.length ? ' ' + comments.length : ''} · ${replyOpen ? '닫기' : '달기'}</button>`}
-                </div>
-                ${showComments ? `<div class="comments">
-                    ${hidden ? `<button class="link-btn" style="align-self:flex-start;" onclick="expandComments('${p.id}')">이전 댓글 ${hidden}개 더 보기</button>` : ''}
-                    ${commentsHtml}
-                    ${replyOpen && !p.deleted ? `
-                        <div class="reply-box">
-                            <textarea data-draft="${replyKey}" maxlength="3000" placeholder="댓글을 입력하세요 (Ctrl+Enter로 등록)" oninput="autoGrow(this)" onkeydown="if((event.ctrlKey||event.metaKey)&&event.key==='Enter'){event.preventDefault();submitReply('${p.id}');}">${esc(drafts[replyKey] || '')}</textarea>
-                            <button class="btn-primary btn-small" style="border-radius:6px; padding:9px 16px;" onclick="submitReply('${p.id}')">등록</button>
-                        </div>` : ''}
-                </div>` : ''}
-            </div>`;
-    }
-
-    function selectPage(id) {
-        planState.pageId = id; planState.editing = null;
-        planState.replyOpen.clear(); planState.expanded.clear();
-        renderPlan();
-        $('view-plan').scrollTop = 0;
-    }
-    function toggleOrder() { planState.order = planState.order === 'new' ? 'old' : 'new'; renderPlan(); }
-    function toggleReply(id) {
-        if (planState.replyOpen.has(id)) planState.replyOpen.delete(id); else planState.replyOpen.add(id);
-        renderPosts(planState.pageId);
-        const t = document.querySelector(`textarea[data-draft="reply-${id}"]`);
-        if (t) t.focus();
-    }
-    function expandComments(id) { planState.expanded.add(id); renderPosts(planState.pageId); }
-    function startEdit(id) { planState.editing = id; renderPosts(planState.pageId); const t = document.querySelector(`textarea[data-draft="edit-${id}"]`); if (t) t.focus(); }
-    function cancelEdit() { planState.editing = null; renderPosts(planState.pageId); }
-
-    function afterPlanChange(res) {
-        if (res && res.success) { plan = res.plan; planState.lastLoad = new Date(); renderPlan(); return true; }
-        return false;
-    }
-
-    async function submitPost() {
-        const input = $('plan-input');
-        const content = input.value.trim();
-        if (!content) return input.focus();
-        if (!planState.pageId) return alert('먼저 쪽을 만들어 주세요.');
-        const res = await api('addPost', { pageId: planState.pageId, content });
-        if (afterPlanChange(res)) { input.value = ''; autoGrow(input); updateCount(); }
-    }
-
-    async function submitReply(postId) {
-        const t = document.querySelector(`textarea[data-draft="reply-${postId}"]`);
-        const content = t ? t.value.trim() : '';
-        if (!content) return t && t.focus();
-        const res = await api('addPost', { pageId: planState.pageId, parentId: postId, content });
-        if (res && res.success) {
-            t.value = '';
-            planState.replyOpen.delete(postId);
-            planState.expanded.add(postId);
-            afterPlanChange(res);
+            if (playTool === 'walk') { containerEl.focus(); return; }
+            if (playTool === 'movePlayer') { playerPos = { wx: bx * 3 + vx, wy: by * 3 + vy, z: currentFloor }; playerPositions[currentFloor] = playerPos; block.revealed = true; renderMap(); return; } 
+            else if (playTool === 'fogToggle') { if (lanternMode) { alert('🏮 등불 모드가 켜져 있습니다!'); return; } block.revealed = !block.revealed; renderMap(); return; } 
+            else if (playTool === 'identifyGimmick') {
+                const wX = bx * 3 + vx, wY = by * 3 + vy; let toggled = false;
+                if (block.gimmicks[origIndex]) { block.gimmicks[origIndex].isIdentified = !block.gimmicks[origIndex].isIdentified; toggled = true; }
+                if (worldGimmickData[currentFloor][wY][wX]) { worldGimmickData[currentFloor][wY][wX].isIdentified = !worldGimmickData[currentFloor][wY][wX].isIdentified; toggled = true; }
+                if (toggled) renderMap(); return;
+            } 
+            else if (playTool === 'floatToggle') {
+                if (!block.floating) return;
+                const onIt = playerPos && playerPos.z === currentFloor && Math.floor(playerPos.wx / 3) === bx && Math.floor(playerPos.wy / 3) === by;
+                if (block.floated && onIt) { alert('러너가 서 있는 블럭은 가라앉힐 수 없어요.'); return; }
+                block.floated = !block.floated; renderMap(); return;
+            }
+            else if (playTool === 'solveGimmick') {
+                const wX = bx * 3 + vx, wY = by * 3 + vy;
+                if (block.gimmicks[origIndex] || worldGimmickData[currentFloor][wY][wX]) { if(confirm('이 기믹을 해결하여 해제(삭제)하시겠습니까?')) { block.gimmicks[origIndex] = null; worldGimmickData[currentFloor][wY][wX] = null; } } renderMap(); return;
+            } 
+            else if (playTool === 'rotate') {
+                if (block.type !== 'empty' && block.type !== 'wall' && block.isRotatable && !(block.floating && !block.floated)) { block.rotation = (block.rotation + 90) % 360; if (playerPos && playerPos.z === currentFloor && Math.floor(playerPos.wx / 3) === bx && Math.floor(playerPos.wy / 3) === by) { const p_vx = playerPos.wx % 3, p_vy = playerPos.wy % 3; playerPos.wx = bx * 3 + (2 - p_vy); playerPos.wy = by * 3 + p_vx; } }
+            } 
+            else if (playTool === 'clueWarning') { if (clueSizeMode === 'block') block.blockClue = 'warning'; else worldClueData[currentFloor][by*3 + vy][bx*3 + vx] = 'warning'; } 
+            else if (playTool === 'clueQuestion') { if (clueSizeMode === 'block') block.blockClue = 'question'; else worldClueData[currentFloor][by*3 + vy][bx*3 + vx] = 'question'; } 
+            else if (playTool === 'clueLandmark') { if (clueSizeMode === 'block') block.blockClue = 'landmark'; else worldClueData[currentFloor][by*3 + vy][bx*3 + vx] = 'landmark'; }
+            else if (playTool === 'clueClear') { if (clueSizeMode === 'block') block.blockClue = null; else worldClueData[currentFloor][by*3 + vy][bx*3 + vx] = null; } 
+            else {
+                const markerColor = document.getElementById('marker-color-select').value;
+                if (playTool === 'markerA') { if (block.type === 'empty' || block.type === 'wall') return; block.markers[origIndex] = markerColor; } 
+                else if (playTool === 'markerB') { worldMarkerData[currentFloor][by*3 + vy][bx*3 + vx] = markerColor; } 
+                else if (playTool === 'markerClear') { block.markers[origIndex] = null; worldMarkerData[currentFloor][by*3 + vy][bx*3 + vx] = null; }
+            }
+            renderMap();
         }
     }
 
-    async function saveEdit(id) {
-        const t = document.querySelector(`textarea[data-draft="edit-${id}"]`);
-        const content = t ? t.value.trim() : '';
-        if (!content) return t && t.focus();
-        const res = await api('editPost', { id, content });
-        if (res && res.success) { planState.editing = null; t.value = ''; afterPlanChange(res); }
+    function updatePlayerFacing() {
+        const up = pressedKeys['ArrowUp'] || pressedKeys['KeyW'] || pressedKeys['w']; 
+        const down = pressedKeys['ArrowDown'] || pressedKeys['KeyS'] || pressedKeys['s']; 
+        const left = pressedKeys['ArrowLeft'] || pressedKeys['KeyA'] || pressedKeys['a']; 
+        const right = pressedKeys['ArrowRight'] || pressedKeys['KeyD'] || pressedKeys['d'];
+        let newFacing = playerFacing;
+        if (up) newFacing = '위'; else if (down) newFacing = '아래'; else if (left) newFacing = '왼쪽'; else if (right) newFacing = '오른쪽';
+        if (newFacing !== playerFacing) { playerFacing = newFacing; renderMap(); }
     }
 
-    function askDeletePost(id) {
-        confirmBox({ title: '글 삭제', msg: '이 글을 삭제하시겠습니까?', sub: '※ 댓글이 달린 글은 "삭제된 글입니다"로 표시됩니다.', okText: '삭제' }, async () => {
-            afterPlanChange(await api('deletePost', { id }));
-        });
+    window.addEventListener('keyup', function(e) { pressedKeys[e.code] = false; pressedKeys[e.key] = false; updatePlayerFacing(); });
+    window.addEventListener('keydown', function(e) {
+        if (currentMode !== 'play' || !playerPos) return;
+        const tag = (e.target && e.target.tagName) || '';
+        if (tag === 'INPUT' || tag === 'TEXTAREA' || (e.target && e.target.isContentEditable)) return;
+        if (playTool !== 'walk' && document.activeElement !== containerEl) return; pressedKeys[e.code] = true; pressedKeys[e.key] = true; updatePlayerFacing();
+        let dx = 0, dy = 0; if (e.code === 'ArrowUp' || e.code === 'KeyW') dy = -1; else if (e.code === 'ArrowDown' || e.code === 'KeyS') dy = 1; else if (e.code === 'ArrowLeft' || e.code === 'KeyA') dx = -1; else if (e.code === 'ArrowRight' || e.code === 'KeyD') dx = 1; else return;
+        e.preventDefault(); movePlayer(dx, dy);
+    }, false);
+
+    function movePlayer(dx, dy) {
+        const nwx = playerPos.wx + dx, nwy = playerPos.wy + dy; if (nwx < 0 || nwx >= GRID_SIZE * 3 || nwy < 0 || nwy >= GRID_SIZE * 3) return;
+        const nbx = Math.floor(nwx / 3), nby = Math.floor(nwy / 3), vx = nwx % 3, vy = nwy % 3; const targetBlock = mapData[playerPos.z][nby][nbx];
+        if (targetBlock.type === 'wall') return;
+        if (targetBlock.floating && !targetBlock.floated) return; // 가라앉은 부유 블럭은 지나갈 수 없다
+        if (targetBlock.type === 'empty') {
+            // 허공 칸의 수로 타일: 물이 찼을 때만 (파도타기로) 지나간다
+            const eState = targetBlock.tileStates ? targetBlock.tileStates[vy * 3 + vx] : 0;
+            if (eState !== 4 || !globalWaterLevel) return;
+            playerPos.wx = nwx; playerPos.wy = nwy; playerPositions[currentFloor] = playerPos; renderMap(); return;
+        }
+        // 🌊 수로: 물이 찼을 때만 (파도타기로) 지나갈 수 있다. 블럭은 들어올 수 없다.
+        if (targetBlock.type === 'surf') {
+            if (!globalWaterLevel) return;
+            playerPos.wx = nwx; playerPos.wy = nwy; targetBlock.revealed = true; playerPositions[currentFloor] = playerPos; renderMap(); return;
+        }
+        const orig = getOriginalTileCoord(vx, vy, targetBlock.rotation); const origIndex = orig.y * 3 + orig.x;
+        
+        let isPassable = (blockTypes[targetBlock.type].tiles[origIndex] === 1 || targetBlock.type === 'dot');
+        const tState = targetBlock.tileStates ? targetBlock.tileStates[origIndex] : 0;
+        
+        if (tState === 4) isPassable = globalWaterLevel; // 수로 타일: 길이 아니어도 물이 차면 헤엄쳐 지나감, 물이 빠지면 아무것도 없음
+        if (tState === 1) isPassable = false; 
+        
+        if (isPassable) { playerPos.wx = nwx; playerPos.wy = nwy; targetBlock.revealed = true; playerPositions[currentFloor] = playerPos; renderMap(); }
     }
 
-    function openAddPage() {
-        promptBox({ title: '새 쪽 만들기', msg: '쪽 이름을 정해 주세요. (최대 30자)', placeholder: '예) 탈출 경로, 역할 분담' }, async title => {
-            const res = await api('addPage', { title });
-            if (res && res.success) { plan = res.plan; planState.pageId = res.pageId || planState.pageId; planState.lastLoad = new Date(); renderPlan(); }
-        });
+    function updateClueTracker() {
+        const listEl = document.getElementById('clue-tracker-list');
+        listEl.innerHTML = '';
+        let hasClues = false;
+        const rowNames = ['A','B','C','D','E','F','G','H','I']; 
+
+        for(let y=0; y<GRID_SIZE; y++) {
+            for(let x=0; x<GRID_SIZE; x++) {
+                const block = mapData[currentFloor][y][x];
+                if(block.type === 'empty' || block.type === 'wall') continue;
+                for(let i=0; i<9; i++) {
+                    const vx = i%3, vy = Math.floor(i/3);
+                    const orig = getOriginalTileCoord(vx, vy, block.rotation); const origIdx = orig.y*3 + orig.x;
+
+                    const bg = block.gimmicks[origIdx];
+                    if(bg && bg.isIdentified && bg.memo) { hasClues = true; listEl.innerHTML += `<li class="clue-item"><b>[${rowNames[y]}-${x+1}]</b> ${bg.memo}</li>`; }
+                    const bm = block.markers[origIdx];
+                    if(bm) { hasClues = true; listEl.innerHTML += `<li class="clue-item marker-item" style="border-left-color:${bm}"><b>[${rowNames[y]}-${x+1}] 🚩</b> 플레이어 표식</li>`; }
+                }
+            }
+        }
+        for (let wy = 0; wy < GRID_SIZE * 3; wy++) {
+            for (let wx = 0; wx < GRID_SIZE * 3; wx++) {
+                const bx = Math.floor(wx / 3); const by = Math.floor(wy / 3);
+                const wg = worldGimmickData[currentFloor][wy][wx];
+                if(wg && wg.isIdentified && wg.memo) { hasClues = true; listEl.innerHTML += `<li class="clue-item"><b>[${rowNames[by]}-${bx+1}]</b> ${wg.memo}</li>`; }
+                const wm = worldMarkerData[currentFloor][wy][wx];
+                if(wm) { hasClues = true; listEl.innerHTML += `<li class="clue-item marker-item" style="border-left-color:${wm}"><b>[${rowNames[by]}-${bx+1}] 🏁</b> 고정 표식</li>`; }
+            }
+        }
+        if(!hasClues) { listEl.innerHTML = `<li style="color:#778da9; text-align:center; margin-top:30px; font-size:12px; line-height:1.6;">밝혀진 기믹 메모나<br>설치된 마커가 없습니다.</li>`; }
     }
-    function openRenamePage() {
-        const page = plan.pages.find(p => p.id === planState.pageId);
-        promptBox({ title: '쪽 이름 변경', msg: '새 이름을 입력하세요.', value: page.title }, async title => {
-            afterPlanChange(await api('renamePage', { pageId: page.id, title }));
-        });
+
+    function renderMap() {
+        const isPLViewActive = (isCapturingPL || gmFogPreview);
+
+        for (let y = 0; y < GRID_SIZE; y++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+                const blockData = mapData[currentFloor][y][x];
+                const blockEl = document.getElementById(`block-${x}-${y}`);
+                
+                blockEl.querySelectorAll('.fog, .constraint-icon, .custom-block-bg, .float-seal').forEach(el => el.remove());
+                blockEl.className = `block`;
+
+                const hideFogCompletely = (currentMode === 'edit');
+                let isBlockRevealed = (blockData.type === 'empty' || blockData.revealed);
+                
+                if (lanternMode && currentMode === 'play') {
+                    if (playerPos && playerPos.z === currentFloor) {
+                        const pbx = Math.floor(playerPos.wx / 3); const pby = Math.floor(playerPos.wy / 3);
+                        isBlockRevealed = (Math.abs(x - pbx) <= 1 && Math.abs(y - pby) <= 1);
+                    } else isBlockRevealed = false;
+                }
+                if (blockData.type === 'start') isBlockRevealed = true;
+
+                const stripContents = (!hideFogCompletely && !isBlockRevealed && isPLViewActive);
+                const blockHasCustomImg = !!customAssets.blocks[blockData.type]; 
+
+                if (blockData.type === 'empty' || stripContents) { blockEl.classList.add('empty-block'); } 
+                else {
+                    if (blockData.type === 'wall') blockEl.classList.add('wall-block');
+                    if (blockData.type === 'surf') blockEl.classList.add(globalWaterLevel ? 'surf-block-high' : 'surf-block-low');
+                    if (blockData.type === 'start') blockEl.classList.add('start-point');
+                    if (blockData.type === 'goal') blockEl.classList.add('goal-point');
+                }
+                
+                if (selectedBlockForMove && selectedBlockForMove.x === x && selectedBlockForMove.y === y) blockEl.classList.add('selected-block');
+                if (highlightedBlocks.some(pos => pos.x === x && pos.y === y)) blockEl.classList.add('highlight');
+
+                blockEl.style.transform = `rotate(0deg)`;
+                const isSunk = !!(blockData.floating && !blockData.floated && !stripContents);
+                if (blockData.floating && !stripContents) {
+                    blockEl.classList.add(isSunk ? 'float-sunk' : 'float-up');
+                    if (isSunk) {
+                        blockEl.style.transform = 'scale(0.9)';
+                        const seal = document.createElement('div'); seal.className = 'float-seal'; seal.innerText = '◇'; blockEl.appendChild(seal);
+                    }
+                }
+
+                if (blockHasCustomImg && !stripContents) {
+                    const bgEl = document.createElement('div'); bgEl.className = 'custom-block-bg'; bgEl.style.position = 'absolute'; bgEl.style.inset = '0';
+                    bgEl.style.backgroundImage = `url(${customAssets.blocks[blockData.type]})`; bgEl.style.backgroundSize = 'cover'; bgEl.style.transform = `rotate(${blockData.rotation}deg)`; bgEl.style.zIndex = '0'; bgEl.style.borderRadius = '2px';
+                    bgEl.style.pointerEvents = 'none'; 
+                    if (isSunk) bgEl.style.filter = 'grayscale(0.8) brightness(0.35)';
+                    blockEl.appendChild(bgEl);
+                }
+
+                const tilesLayout = blockTypes[blockData.type].tiles;
+                const tileNodes = blockEl.querySelectorAll('.tile');
+
+                for (let i = 0; i < 9; i++) {
+                    const vx = i % 3; const vy = Math.floor(i / 3);
+                    const orig = getOriginalTileCoord(vx, vy, blockData.rotation); const origIndex = orig.y * 3 + orig.x;
+                    const tileEl = tileNodes[i];
+                    
+                    if (stripContents) { tileEl.className = 'tile'; } 
+                    else {
+                        tileEl.className = `tile ${tilesLayout[origIndex] && blockData.type !== 'wall' && blockData.type !== 'surf' ? (isSunk ? 'path-ghost' : 'path') : ''}`;
+                        if (blockHasCustomImg) { tileEl.style.backgroundColor = 'transparent'; tileEl.style.boxShadow = 'none'; } else { tileEl.style.backgroundColor = ''; tileEl.style.boxShadow = ''; }
+                        ['background-image','background-size','background-position','background-color'].forEach(pr => { if (tileEl.style.getPropertyPriority(pr) === 'important') tileEl.style.removeProperty(pr); });
+                        
+                        let tState = blockData.tileStates ? blockData.tileStates[origIndex] : 0;
+                        if (tState === 1) {
+                            tileEl.classList.add('tile-wall');
+                            // 커스텀 장애물벽 이미지가 있으면, 같은 그림을 타일 크기로 축소해 표시
+                            if (customAssets.blocks.wall) {
+                                tileEl.style.setProperty('background-image', `url(${customAssets.blocks.wall})`, 'important');
+                                tileEl.style.setProperty('background-size', 'cover', 'important');
+                                tileEl.style.setProperty('background-position', 'center', 'important');
+                                tileEl.style.setProperty('background-color', 'transparent', 'important');
+                            }
+                        }
+                        else if (tState === 4) tileEl.classList.add(globalWaterLevel ? 'tile-surf-high' : 'tile-surf-low');
+                    }
+                    
+                    tileEl.innerHTML = ''; delete tileEl.dataset.memo; 
+
+                    if (!stripContents && !(isSunk && isPLViewActive)) {   // 가라앉은 부유 블럭의 기믹은 PL 시야·캡처에 보이지 않는다
+                        if (blockData.gimmicks && blockData.gimmicks[origIndex]) {
+                            const gData = blockData.gimmicks[origIndex]; const vis = visOf(gData.type);
+                            if (!isPLViewActive) {
+                                tileEl.classList.add('gimmick-a');
+                                const eyeIcon = gData.isIdentified ? `<span style="position:absolute; top:-2px; left:-2px; font-size:10px; z-index:20;">👁️</span>` : '';
+                                tileEl.innerHTML += `${eyeIcon}<span class="symbol-icon ${vis.class}" style="pointer-events:none;${gColor(gData)}">${vis.icon}</span>`;
+                                if(gData.memo) tileEl.dataset.memo = gData.memo; 
+                            } 
+                            else if (gData.isIdentified || PL_ALWAYS_VISIBLE.has(gData.type)) {
+                                tileEl.classList.add('gimmick-a'); tileEl.innerHTML += `<span class="symbol-icon ${vis.class}" style="pointer-events:none;${gColor(gData)}">${vis.icon}</span>`;
+                            }
+                            else if (gimmickBlindMode) {
+                                tileEl.classList.add('gimmick-a');
+                                if (!isCapturingPL && gmFogPreview) { tileEl.innerHTML += `<span class="symbol-icon" style="pointer-events:none; color:#fdf0d5; text-shadow:0 0 5px #000; font-size:18px;">❓<span style="position:absolute; bottom:0px; right:0px; font-size:10px; opacity:0.9; text-shadow:none;" class="${vis.class}">${vis.icon}</span></span>`; if(gData.memo) { tileEl.style.pointerEvents = 'auto'; tileEl.dataset.memo = gData.memo; } } 
+                                else { tileEl.innerHTML += `<span class="symbol-icon" style="pointer-events:none; color:#fdf0d5; text-shadow:0 0 5px #000; font-size:18px;">❓</span>`; }
+                            }
+                        }
+                    }
+
+                    if (blockData.markers && blockData.markers[origIndex]) {
+                        const mColor = blockData.markers[origIndex]; tileEl.innerHTML += `<div style="position:absolute; z-index:105; pointer-events:none;">${getFlagSVG(mColor, false)}</div>`;
+                    }
+                }
+
+                if (blockData.type !== 'empty' && blockData.type !== 'wall' && blockData.type !== 'surf' && !isSunk && !stripContents && !isCapturingPL) {
+                    if (!blockData.isMovable) { const iconMove = document.createElement('div'); iconMove.className = 'constraint-icon no-move'; iconMove.innerText = '이동X'; blockEl.appendChild(iconMove); }
+                    if (!blockData.isRotatable) { const iconRot = document.createElement('div'); iconRot.className = 'constraint-icon no-rot'; iconRot.innerText = '회전X'; blockEl.appendChild(iconRot); }
+                }
+
+                if (!hideFogCompletely && !isBlockRevealed) { const fogEl = document.createElement('div'); fogEl.className = 'fog'; blockEl.appendChild(fogEl); }
+            }
+        }
+
+        overlayEl.innerHTML = ''; clueOverlayEl.innerHTML = ''; 
+        
+        if (currentMode === 'edit' && playerSpawns[currentFloor]) {
+            const spawn = playerSpawns[currentFloor];
+            const bx = Math.floor(spawn.wx / 3), vx = spawn.wx % 3, by = Math.floor(spawn.wy / 3), vy = spawn.wy % 3;
+            const ghostEl = document.createElement('div'); ghostEl.className = 'overlay-item player-marker';
+            
+            // 🌟 바뀐 타일 및 블럭 크기에 맞춘 위치 연산 (62px 블럭, 4px 간격, 20px 타일)
+            ghostEl.style.left = `${bx * 66 + 1 + vx * 20}px`; ghostEl.style.top = `${by * 66 + 1 + vy * 20}px`;  ghostEl.style.opacity = '0.5'; 
+            let pIcon = `<div style="z-index:2; opacity:0.8;">${getPlayerMarkerSVG()}</div>`;
+            if(customAssets.player['아래']) pIcon = `<img src="${customAssets.player['아래']}" style="width:28px; height:28px; z-index:2; opacity:0.8; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.8)); image-rendering:pixelated; position:relative; top:-4px;" />`;
+            ghostEl.innerHTML = pIcon; overlayEl.appendChild(ghostEl);
+        }
+
+        for (let y = 0; y < GRID_SIZE; y++) {
+            for (let x = 0; x < GRID_SIZE; x++) {
+                const blockData = mapData[currentFloor][y][x];
+                const clueSunk = !!(blockData.floating && !blockData.floated) && isPLViewActive;   // 가라앉은 블럭의 단서 표시는 PL 시야·캡처에 보이지 않는다
+                if (blockData.blockClue && !clueSunk) {
+                    const clueEl = document.createElement('div'); clueEl.className = 'overlay-item';
+                    clueEl.style.left = `${x * 66}px`; clueEl.style.top = `${y * 66}px`;  clueEl.style.width = '62px'; clueEl.style.height = '62px';
+                    clueEl.style.fontSize = '35px'; clueEl.style.textShadow = '0 0 10px rgba(0,0,0,1)';
+                    clueEl.innerHTML = clueIcon(blockData.blockClue); clueOverlayEl.appendChild(clueEl);
+                }
+            }
+        }
+
+        for (let wy = 0; wy < GRID_SIZE * 3; wy++) {
+            for (let wx = 0; wx < GRID_SIZE * 3; wx++) {
+                const bx = Math.floor(wx / 3), vx = wx % 3; const by = Math.floor(wy / 3), vy = wy % 3; const blockUnder = mapData[currentFloor][by][bx];
+                const wClue = worldClueData[currentFloor][wy][wx];
+                if (wClue && !(blockUnder.floating && !blockUnder.floated && isPLViewActive)) { const clueEl = document.createElement('div'); clueEl.className = 'overlay-item'; clueEl.style.left = `${bx * 66 + 1 + vx * 20}px`; clueEl.style.top = `${by * 66 + 1 + vy * 20}px`; clueEl.style.fontSize = '18px'; clueEl.style.textShadow = '0 0 5px rgba(0,0,0,1)'; clueEl.innerHTML = clueIcon(wClue); clueOverlayEl.appendChild(clueEl); }
+
+                let isOverlayBlockRevealed = (blockUnder.type === 'empty' || blockUnder.revealed);
+                if (lanternMode && currentMode === 'play') { if (playerPos && playerPos.z === currentFloor) { const pbx = Math.floor(playerPos.wx / 3); const pby = Math.floor(playerPos.wy / 3); isOverlayBlockRevealed = (Math.abs(bx - pbx) <= 1 && Math.abs(by - pby) <= 1); } else isOverlayBlockRevealed = false; }
+                if (blockUnder.type === 'start') isOverlayBlockRevealed = true;
+
+                const sunkUnder = !!(blockUnder.floating && !blockUnder.floated);
+                const shouldHideItem = (!isOverlayBlockRevealed || sunkUnder) && isPLViewActive;
+                const wGimmick = worldGimmickData[currentFloor][wy][wx]; const wMarker = worldMarkerData[currentFloor][wy][wx];
+                const renderWGimmickGM = wGimmick && !isPLViewActive; const renderWGimmickPLIdentified = wGimmick && isPLViewActive && (wGimmick.isIdentified || PL_ALWAYS_VISIBLE.has(wGimmick.type)) && !shouldHideItem; const renderWGimmickPLBlind = wGimmick && isPLViewActive && !wGimmick.isIdentified && gimmickBlindMode && !shouldHideItem;
+                
+                if (renderWGimmickGM || renderWGimmickPLIdentified || renderWGimmickPLBlind || wMarker) {
+                    const itemEl = document.createElement('div'); itemEl.className = 'overlay-item'; itemEl.style.left = `${bx * 66 + 1 + vx * 20}px`; itemEl.style.top = `${by * 66 + 1 + vy * 20}px`;
+                    itemEl.addEventListener('click', (e) => { e.stopPropagation(); handleTileClick(bx, by, vy * 3 + vx); }); itemEl.addEventListener('contextmenu', (e) => { e.preventDefault(); if (currentMode === 'play') handleRightClickBlockMove(bx, by); });
+
+                    if (renderWGimmickGM) { 
+                        const vis = visOf(wGimmick.type); itemEl.classList.add('gimmick-b'); const eyeIcon = wGimmick.isIdentified ? `<span style="position:absolute; top:-2px; left:-2px; font-size:10px; z-index:20;">👁️</span>` : '';
+                        itemEl.innerHTML += `${eyeIcon}<span class="symbol-icon ${vis.class}" style="pointer-events:none;${gColor(wGimmick)}">${vis.icon}</span>`; 
+                        if(wGimmick.memo) { itemEl.style.pointerEvents = 'auto'; itemEl.dataset.memo = wGimmick.memo; }
+                    } else if (renderWGimmickPLIdentified) {
+                        const vis = visOf(wGimmick.type); itemEl.classList.add('gimmick-b'); itemEl.innerHTML += `<span class="symbol-icon ${vis.class}" style="pointer-events:none;${gColor(wGimmick)}">${vis.icon}</span>`; 
+                    } else if (renderWGimmickPLBlind) {
+                        const vis = visOf(wGimmick.type); itemEl.classList.add('gimmick-b'); 
+                        if (!isCapturingPL && gmFogPreview) { itemEl.innerHTML += `<span class="symbol-icon" style="pointer-events:none; color:#fdf0d5; text-shadow:0 0 5px #000; font-size:18px;">❓<span style="position:absolute; bottom:0px; right:0px; font-size:10px; opacity:0.9; text-shadow:none;" class="${vis.class}">${vis.icon}</span></span>`; if(wGimmick.memo) { itemEl.style.pointerEvents = 'auto'; itemEl.dataset.memo = wGimmick.memo; } } 
+                        else { itemEl.innerHTML += `<span class="symbol-icon" style="pointer-events:none; color:#fdf0d5; text-shadow:0 0 5px #000; font-size:18px;">❓</span>`; }
+                    }
+
+                    if (wMarker) { itemEl.innerHTML += `<div style="position:absolute; z-index:105; pointer-events:none;">${getFlagSVG(wMarker, true)}</div>`; }
+                    overlayEl.appendChild(itemEl);
+                }
+            }
+        }
+
+        if (currentMode === 'play' && playerPos && playerPos.z === currentFloor) {
+            const bx = Math.floor(playerPos.wx / 3), vx = playerPos.wx % 3, by = Math.floor(playerPos.wy / 3), vy = playerPos.wy % 3; const blockUnder = mapData[currentFloor][by][bx];
+            let isPlayerBlockRevealed = (blockUnder.type === 'empty' || blockUnder.revealed);
+            if (lanternMode && currentMode === 'play') isPlayerBlockRevealed = true; 
+            const shouldHidePlayer = !isPlayerBlockRevealed && isPLViewActive;
+            
+            if (!shouldHidePlayer) {
+                const playerEl = document.createElement('div'); playerEl.className = 'overlay-item player-marker';
+                playerEl.style.left = `${bx * 66 + 1 + vx * 20}px`; playerEl.style.top = `${by * 66 + 1 + vy * 20}px`;  
+                let playerHtml = `<div style="z-index:2;">${getPlayerMarkerSVG()}</div>`;
+                if (customAssets.player[playerFacing]) { playerHtml = `<img src="${customAssets.player[playerFacing]}" style="width: 28px; height: 28px; z-index: 2; filter: drop-shadow(0 2px 5px rgba(0,0,0,0.8)); image-rendering: pixelated; position: relative; top: -4px;" />`; }
+                playerEl.innerHTML = playerHtml; overlayEl.appendChild(playerEl);
+            }
+        }
+        updateClueTracker();
     }
-    function askDeletePage() {
-        const page = plan.pages.find(p => p.id === planState.pageId);
-        confirmBox({ title: page.title, msg: '이 쪽을 삭제하시겠습니까?', sub: '※ 쪽 안의 글도 함께 보이지 않게 됩니다.', okText: '삭제' }, async () => {
-            afterPlanChange(await api('deletePage', { pageId: page.id }));
-        });
-    }
+    document.body.classList.add('gm-edit');
+    initBoard();
 </script>
 </body>
 </html>
